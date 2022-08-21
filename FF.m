@@ -126,28 +126,39 @@ classdef FF < handle
         thetaBase       % state variables for base
         thetaTop        % state variables for top        
         tauWall         % non-dimensional time constants for wall layers
+        dTauwdr         % time constant sensitivity partial w.r.t thickness
         tauBase         % non-dimensional time constants for base layers
         tauTop          % non-dimensional time constants for top layers
         Awall           % state matrix for wall system
+        dAwdr           % sensitivity state matrix w.r.t thickness
         Abase           % state matrix for base system
         Atop            % state matrix for top system
         Bwall           % input matrix for wall system
+        dBwdr           % input sensitivity matrix w.r.t thickness
         Bbase           % input matrix for base system
         Btop            % input matrix for top system
         Cwall           % state output matrix for wall system
+        dCwdr           % state output sensitivity matrix for wall system
         Cbase           % state output matrix for base system
         Ctop            % state output matrix for top system
         Dwall           % input output matrix for wall system
+        dDwdr           % input output sensitivity matrix for wall system
         Dbase           % input output matrix for base system
         Dtop            % input output matrix for top system
         wallSys         % wall state-space system
         baseSys         % base state-space system
         topSys          % top state-space system
+        swr             % wall sensitivity index w.r.t thickness
+        swrSys          % linear system for wall sensitivity index
         % wall and base 2D continuouse model variables
         thetaW          % composite wall solution/s        
         thetaWIC        % IC contribution for thetaW
         thetaWBC        % BC contribution for thetaW
         gW1             % current inner wall boundary condition
+        gW1p            % averaged boundary condition with particles
+        gW1a            % averaged boundary condition with air
+        KWI             % boundary contribution kernel integrand
+        KW              % boundary contribution kernel
         IBCW = []       % stored inner wall boundary conditions, f(z, t)
         rhoW            % composite wall initial condition/s
         zbarW           % z-dimension vectors for composite wall
@@ -160,6 +171,8 @@ classdef FF < handle
         cWr             % lhs of reduced r-BVP boundary condition system
         etaW            % r-BVP eigenvalues reduced for IC contribution
         betaW           % z-BVP eigenvalues reduced for IC contribution
+        etaWN           % r-BVP norms
+        betaWN          % z-BVP norms
         etaWBC          % r-BVP eigenvalues reduced for BC contribution
         betaWBC         % z-BVP eigenvalues reduced for BC contribution
         hcw = 1         % wall-particle boundary contact coefficient
@@ -194,6 +207,8 @@ classdef FF < handle
                         % contribution for current eta values
         RC4             % r-dimension eigenfunctions for boundary 
                         % contribution for current eta values
+        % inputs from Modelica model for system integration
+        modelicaInputs  % inputs from modelica model (Tin, m_dot_in/out)
         % non-dimensional flow rates (should be equal for correct solution)
         Qc              % center channel
         Qt              % top boundary
@@ -203,6 +218,9 @@ classdef FF < handle
         qLossW          % (W/m2) prescribed heat flux at bin wall
         qLossB          % (W/m2) prescribed heat flux at bin base
         qLossT          % (W/m2) prescribed heat flux at bin top
+        qLossWp         % (kW) total wall heat loss computed in particles
+        qLossBp         % (kW) total base heat loss computed in particles
+        qLossTp         % (kW) total top heat loss computed in particles
         % controlled dimensional volumetric flow rate
         Q = 1e-6        % m3/s
         QCh = 1e-6      % m3/s charging flow rate
@@ -224,7 +242,7 @@ classdef FF < handle
         hp3 = 10                    % (W/m2K) center flow channel h
         hp4 = 10                    % (W/m2K) wall overall convection 
                                     % coefficient for prototype bin
-        hp5 = 10                    % (W/m2K) free surface h
+        hp5 = 1                    % (W/m2K) free surface h
         hp5D                        % "" for discharge mode
         hp5H                        % "" for holding mode
         hp5C                        % "" for chargeing mode
@@ -310,7 +328,7 @@ classdef FF < handle
                                     % diffusivity 
         alphaLoose                  % (m2/s) particle thermal 
                                     % diffusivity 
-        mu = 2.5*1.81e-5            % (kg/ms) viscosity of particles 
+        mup = 2.5*1.81e-5           % (kg/ms) viscosity of particles 
                                     % moving in air(Bicerano, Douglas 
                                     % and Brune, 1999)
         nu                          % (m2/s) dynamic viscosity of 
@@ -325,7 +343,7 @@ classdef FF < handle
         Uinf = 0.02                 % bulk velocity at outlet  
         baseInsulation              % insulation info for base
         wallInsulation              % insulation info for wall
-        topInsulation               % insulation info for top of bin
+        roofInsulation              % insulation info for top of bin
         % nondimensional terms
         Bi1                 % Biot number at boundary 1
         Bi2                 % "" boundary 2
@@ -415,7 +433,15 @@ classdef FF < handle
         % data saving parameters
         ls = 10         % max storage size for time steps
         thetaFolder     % folder to save theta matrices in
-        objFolder       % folder to save FF object        
+        objFolder       % folder to save FF object  
+        % data storage for matlab app
+        chargeDurration = 0
+        holdDurration = 0
+        dischargeDurration = 0
+        timeStep = 1
+        inletMassFlowRate = 0
+        outletMassFlowRate = 0
+        currentStatus = ''
         % figures and tables
         vtbl            % table containing all static variables
         cfig            % figure showing Fourier coefficients
@@ -472,10 +498,11 @@ classdef FF < handle
             obj.alphapLoose = obj.kp/(obj.rhopLoose*obj.cpp);
             obj.alphaPacked = obj.k/(obj.rhoPack*obj.cp); 
             obj.alphaLoose = obj.k/(obj.rhoLoose*obj.cp);
-            obj.CapS = obj.rhoPack*obj.cp*obj.H;
-            obj.epsilon2 = obj.CapBase/obj.CapS;
-            obj.epsilon4 = obj.CapWall/obj.CapS;
-            obj.nu = obj.mu/obj.rhoLoose;
+%             obj.CapS = obj.rhoPack*obj.cp*obj.H;
+%             obj.epsilon2 = obj.CapBase/obj.CapS;
+%             obj.epsilon4 = obj.CapWall/obj.CapS;
+            obj.nup = obj.mup/obj.rhoLoose;
+            obj.nu = obj.nup;
             obj.Bi1 = obj.h1*obj.H/obj.k;          
             obj.Bi2 = obj.h2*obj.H/obj.k;               
             obj.Bi3 = obj.h3*obj.H/obj.k;               
@@ -486,17 +513,17 @@ classdef FF < handle
             obj.Ga = obj.g*obj.H^3/obj.nu^2;                
             obj.Pr = obj.nu/obj.alphaPacked;                        
 %             obj.Uinf = obj.Q/(pi*(obj.a0*obj.H)^2);
-            obj.Q = obj.Uinf*pi*(obj.a0*obj.H)^2;
-            obj.Re = obj.H*obj.Uinf/obj.nu;           
-            obj.Pe = obj.Re*obj.Pr;
-            obj.Qc = obj.Q/(obj.H^2*obj.Uinf);
+%             obj.Q = obj.Uinf*pi*(obj.a0*obj.H)^2;
+%             obj.Re = obj.H*obj.Uinf/obj.nu;           
+%             obj.Pe = obj.Re*obj.Pr;
+%             obj.Qc = obj.Q/(obj.H^2*obj.Uinf);
             obj.Bip1 = obj.hp1*obj.Hp/obj.kp;          
             obj.Bip2 = obj.hp2*obj.Hp/obj.kp;               
             obj.Bip3 = obj.hp3*obj.Hp/obj.kp;               
             obj.Bip4 = obj.hp4*obj.Hp/obj.kp;                    
-            obj.Bip5D = obj.hp5D*obj.H/obj.k;  
-            obj.Bip5H = obj.hp5H*obj.H/obj.k; 
-            obj.Bip5C = obj.hp5C*obj.H/obj.k;   
+            obj.Bip5D = obj.hp5D*obj.Hp/obj.kp;  
+            obj.Bip5H = obj.hp5H*obj.Hp/obj.kp; 
+            obj.Bip5C = obj.hp5C*obj.Hp/obj.kp;   
             obj.Gap = obj.g*obj.Hp^3/obj.nup^2;                
             obj.Prp = obj.nup/obj.alphapPacked;                        
             obj.Uinfp = obj.Qp/(pi*(obj.a0*obj.Hp)^2);
@@ -540,10 +567,10 @@ classdef FF < handle
             obj.alphapLoose = obj.kp/(obj.rhopLoose*obj.cpp); 
             obj.alphaPacked = obj.k/(obj.rhoPack*obj.cp); 
             obj.alphaLoose = obj.k/(obj.rhoLoose*obj.cp);  
-            obj.nu = obj.mu/obj.rhoLoose;
-            obj.CapS = obj.rhoPack*obj.cp*obj.H;
-            obj.epsilon2 = obj.CapBase/obj.CapS;
-            obj.epsilon4 = obj.CapWall/obj.CapS;
+            obj.nup = obj.mup/obj.rhoLoose;
+%             obj.CapS = obj.rhoPack*obj.cp*obj.H;
+%             obj.epsilon2 = obj.CapBase/obj.CapS;
+%             obj.epsilon4 = obj.CapWall/obj.CapS;
             obj.Bi1 = obj.h1*obj.H/obj.k;          
             obj.Bi2 = obj.h2*obj.H/obj.k;               
             obj.Bi3 = obj.h3*obj.H/obj.k;               
@@ -554,7 +581,7 @@ classdef FF < handle
             obj.Ga = obj.g*obj.H^3/obj.nu^2;                
             obj.Pr = obj.nu/obj.alphaPacked;   
 %             obj.Uinf = obj.Q/(pi*(obj.a0*obj.H)^2);
-            obj.Q = obj.Uinf*pi*(obj.a0*obj.H)^2;
+%             obj.Q = obj.Uinf*pi*(obj.a0*obj.H)^2;
             obj.Qc = obj.Q/(obj.H^2*obj.Uinf);
             obj.Re = obj.H*obj.Uinf/obj.nu;                 
             obj.Pe = obj.Re*obj.Pr;
@@ -562,9 +589,9 @@ classdef FF < handle
             obj.Bip2 = obj.hp2*obj.Hp/obj.kp;               
             obj.Bip3 = obj.hp3*obj.Hp/obj.kp;               
             obj.Bip4 = obj.hp4*obj.Hp/obj.kp;                    
-            obj.Bip5D = obj.hp5D*obj.H/obj.k;  
-            obj.Bip5H = obj.hp5H*obj.H/obj.k; 
-            obj.Bip5C = obj.hp5C*obj.H/obj.k;  
+            obj.Bip5D = obj.hp5D*obj.Hp/obj.kp;  
+            obj.Bip5H = obj.hp5H*obj.Hp/obj.kp; 
+            obj.Bip5C = obj.hp5C*obj.Hp/obj.kp;  
             obj.Gap = obj.g*obj.Hp^3/obj.nup^2;                
             obj.Prp = obj.nup/obj.alphapPacked;                        
             obj.Uinfp = obj.Qp/(pi*(obj.a0*obj.Hp)^2);
@@ -593,7 +620,7 @@ classdef FF < handle
             obj.RD = []; obj.RFD = []; obj.RC3 = []; obj.RC4 = [];
             obj.eta = []; obj.beta = []; obj.RStatic = []; obj.cGet = [];
             obj.RC3Static = []; obj.RC4Static = []; obj.etaStatic = []; 
-            obj.thetaMatch = {}; obj.rhoH = []; obj.FH = [];
+            obj.rhoH = []; obj.FH = [];
             obj.betaH = []; obj.etaH = []; obj.CnmH = [];
             obj.thetaH = []; obj.FHhatCn = []; obj.betaFH = [];   
             obj.thetaCh = []; obj.g1 = {}; obj.g3 = {};
@@ -626,9 +653,10 @@ classdef FF < handle
             % initialize wall systems
             initializeBaseSys(obj);
 %             initializeTopSys(obj);
-            matchWallBoundary(obj, zIC, IC(:, end));
-            computeThetaW(obj);
-%             initializeWallSys(obj);
+%             matchWallBoundary(obj, zIC, IC(:, end));
+%             computeThetaW(obj, obj.Fo(1));
+            initializeWallSys(obj);
+%             initializeRoofSys(obj);
             % iterate through each time step
             kStart = 2;
             if profiling, profile on; end
@@ -639,6 +667,7 @@ classdef FF < handle
                 kStart = 2;
             end                   
             for kf = kStart:length(obj.Fo)
+                obj.currentStatus = printStatus(obj, IC);
                 obj.FoNow = obj.Fo(kf);
                 obj.FoModeNow = obj.FoMode{1, kf};
                 % normalize time step
@@ -647,7 +676,7 @@ classdef FF < handle
                     case 'H'
                         % set initial condition
                         if kf == 1, prev = 1; else, prev = kf - 1; end
-                        if obj.FoMode{1, prev} ~= 'H' || ~isempty(hold_start)
+                        if obj.FoMode{1, prev} ~= 'H'
                             matchHoldIC(obj, IC, zIC, rIC, ...
                                                   verify_conservation);
                         end     
@@ -658,11 +687,12 @@ classdef FF < handle
                         % store temperature values in solution matrix
                         patchThetaH(obj, kf, verify_conservation);
                         % update wall and base boundaries
-                        ub = mean(obj.theta{end, 1}(1, :))*ones(2, 1);
-%                         uw = mean(obj.theta{end, 1}(:, end))*ones(2, 1);
-                        Fo_ = [0, obj.df];                                              
-                        computeBaseSys(obj, ub, Fo_);
-%                         computeWallSys(obj, uw, Fo_);
+                        ub = mean(mean(obj.theta{end, 1}(1, :)))*ones(1000, 1);
+                        uw = mean(mean(obj.theta{end, 1}(:, end)))*ones(1000, 1);
+%                         Fo_ = [0, obj.df];
+                        Fo_ = linspace(0, obj.df, 1000);
+                        computeBaseSys(obj, ub, Fo_);                       
+                        computeWallSys(obj, uw, Fo_); 
                     case 'C'
                         % set initial condition
                         if kf == 1, prev = 1; else, prev = kf - 1; end
@@ -683,18 +713,18 @@ classdef FF < handle
                             end  
                         end
                         % update wall and base boundaries
-                        ub = mean(obj.theta{end, 1}(1, :))*ones(2, 1);
-%                         uw = mean(obj.theta{end, 1}(:, end))*ones(2, 1);
-                        Fo_ = [0, obj.df];                      
-                        computeBaseSys(obj, ub, Fo_);
-%                         computeWallSys(obj, uw, Fo_);
+                        ub = mean(mean(obj.theta{end, 1}(1, :)))*ones(1000, 1);
+                        uw = mean(mean(obj.theta{end, 1}(:, end)))*ones(1000, 1);
+%                         Fo_ = [0, obj.df];
+                        Fo_ = linspace(0, obj.df, 1000);
+                        computeBaseSys(obj, ub, Fo_);                       
+                        computeWallSys(obj, uw, Fo_); 
                     case 'D'
                         % set initial condition
                         if kf == 1, prev = 1; else, prev = kf - 1; end
-                        if obj.FoMode{1, prev} ~= 'D' || ~isempty(hold_start)
+                        if obj.FoMode{1, prev} ~= 'D'
                             matchDischargeIC(obj, IC, zIC, rIC, ...
                                                   verify_conservation);
-                            hold_start = [];
                         end 
                         obj.Bi5 = obj.Bi5D;                        
                         % compute temperature in top boundary
@@ -715,11 +745,12 @@ classdef FF < handle
                             end
                         end
                         % update wall and base boundaries
-                        ub = mean(obj.thetaS(1, :))*ones(2, 1);
-%                         uw = mean(obj.thetaS(:, end))*ones(2, 1);
-                        Fo_ = [0, obj.df];                      
+                        ub = mean(mean(obj.theta{end, 1}(1, :)))*ones(1000, 1);
+                        uw = mean(mean(obj.theta{end, 1}(:, end)))*ones(1000, 1);
+%                         Fo_ = [0, obj.df];
+                        Fo_ = linspace(0, obj.df, 1000);
                         computeBaseSys(obj, ub, Fo_);                       
-%                         computeWallSys(obj, uw, Fo_);                        
+                        computeWallSys(obj, uw, Fo_);                        
                 end
                 IC = full(obj.theta{kn_, 1});
                 zIC = obj.theta{kn_, 2}; rIC = obj.theta{kn_, 3};
@@ -727,11 +758,16 @@ classdef FF < handle
 %                 ut = obj.thetaA*ones(2, 1);
 %                 computeTopSys(obj, ut, Fo_);
 %                 computeThetaA(obj, IC, zIC, rIC);
-                matchWallBoundary(obj, zIC, IC(:, end));
-                computeThetaW(obj);                
+%                 matchWallBoundary(obj, zIC, IC(:, end));
+%                 computeThetaW(obj, obj.Fo(kf));                
                 % hold if close to empty
                 if obj.ztop < 0.1 && kf ~= length(obj.Fo)
                     if obj.FoMode{1, kf+1} == 'D'
+                        obj.FoMode{1, kf+1} = 'H';
+                    end                    
+                end
+                if obj.ztop > 0.95 && kf ~= length(obj.Fo)
+                    if obj.FoMode{1, kf+1} == 'C'
                         obj.FoMode{1, kf+1} = 'H';
                     end                    
                 end
@@ -753,7 +789,7 @@ classdef FF < handle
                         obj.gW1 = obj.Biw1*obj.thetaA ...
                                             *ones(length(obj.zbarW), 1);
                         obj.gW1 = obj.Biw1*obj.thetaA;
-                        computeThetaW(obj, Fo_);
+                        computeThetaW_new(obj, Fo_);
                         thetaP = obj.thetaA*ones(length(obj.zbarH), ...
                                                         length(obj.rbarH));
                 else
@@ -762,7 +798,7 @@ classdef FF < handle
                         % compute wall solution                   
                         obj.gW1 = obj.Biw1*ones(length(obj.zbarW), 1);
 %                         obj.gW1 = 1;
-                        computeThetaW(obj, Fo_);  
+                        computeThetaW_new(obj, Fo_);  
                         thetaP = ones(length(obj.zbarH), length(obj.rbarH));
                 end
                 patchThetaK(obj, k_, thetaP);
@@ -1401,7 +1437,7 @@ classdef FF < handle
         function computeFD(obj)
             % computes the filtering function for the bin holding solution
             if isempty(obj.g2), initializeBaseSys(obj); end
-%             if isempty(obj.g4), initializeWallSys(obj); end
+            if isempty(obj.g4), initializeWallSys(obj); end
             computeBetaFD(obj);
             if isempty(obj.etaFDStatic), computeEtaFD(obj); end
             computeFDCn(obj);  
@@ -1542,7 +1578,7 @@ classdef FF < handle
                 plot(interval, Zm(obj, interval), '-k');
                 hold on
                 plot(obj.eta, Zm(obj, obj.eta), '.r');
-                legend('$Z_m(\hat{\eta})$', '$\eta_m$', 'interpreter',...
+                legend('$Z_m(\hat{\eta})$', '$\eta_m$', 'interpreter', ...
                     'latex', 'FontSize', 14, 'NumColumns', 2);
                 xlabel('$\hat{\eta}$', 'interpreter', 'latex', 'FontSize', 14);
                 ylabel('$Z_m(\hat{\eta})$', 'interpreter', 'latex',...
@@ -1892,8 +1928,6 @@ classdef FF < handle
             thetaC_ = expm(obj.AC*obj.df)*thetaC_(:); 
             % set new temperatures for top region
             obj.thetaC = reshape(thetaC_, m, n)';
-            % compute outlet bult temperature
-            computeThetaO(obj);
             % compute sensitivity if wanted
             if sensitivity
                 computeCenterSensitivity(obj);
@@ -1991,16 +2025,35 @@ classdef FF < handle
             obj.thetaC(1, :) = obj.thetaChat;
         end               
         function computeThetaO(obj)
-            % computes and appends bulk outlet temperature for current time
-            if isempty(obj.thetaC)
-                iterateThetaC(obj);
+            % computes the centerline and bulk outlet temperature for 
+            % current time
+%             if isempty(obj.thetaC)
+%                 iterateThetaC(obj);
+%             end
+%             if isempty(obj.thetaO)
+%                 obj.thetaO = [];
+%             end
+%             obj.thetaO = [obj.thetaO; [obj.FoNow, obj.thetaC(end, 1)]];
+%             obj.thetaOB = [obj.thetaOB; [obj.FoNow, ...
+%                 mean(obj.thetaC(end, :))]];
+            obj.thetaO = []; obj.thetaOB = [];
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                t = obj.Fo2t(obj.Fo(ii), 1);
+                % update domain according to mass accounting
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                r_ = obj.theta{ii_, 3};
+                [~, ri] = min(abs(r_ - obj.a0));
+                fr = simpsonIntegrator(obj, r_(1:ri));
+                theta_  = obj.theta{ii_, 1}(1:ri);
+                obj.thetaO = [obj.thetaO; [t, theta_(1)]];
+                obj.thetaOB = [obj.thetaOB; [t, ...
+                                   2/r_(ri)^2*(theta_.*r_(1:ri))*fr']];
             end
-            if isempty(obj.thetaO)
-                obj.thetaO = [];
-            end
-            obj.thetaO = [obj.thetaO; [obj.FoNow, obj.thetaC(end, 1)]];
-            obj.thetaOB = [obj.thetaOB; [obj.FoNow, ...
-                mean(obj.thetaC(end, :))]];
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % storage bin quiescent air temperature
@@ -2048,10 +2101,10 @@ classdef FF < handle
             % computes the overall heat transfer coefficient for the base
             % using the insulation cell array
             R = 0;
-            for i = 1:size(obj.topInsulation, 1)
-                t = abs(obj.topInsulation{i, 2}(2) - ...
-                                            obj.topInsulation{i, 2}(1));
-                k_ = obj.topInsulation{i, 3};
+            for i = 1:size(obj.roofInsulation, 1)
+                t = abs(obj.roofInsulation{i, 2}(2) - ...
+                                            obj.roofInsulation{i, 2}(1));
+                k_ = obj.roofInsulation{i, 3};
                 R = R + t/(pi*(obj.bp*obj.Hp)^2*k_);
             end
             R = R + 1/(pi*(obj.bp*obj.Hp)^2*obj.hInf);            
@@ -2083,30 +2136,30 @@ classdef FF < handle
             R = R + 1/(2*pi*r2*obj.Hp*obj.hInf);
             obj.hp4 = 1/(2*pi*obj.bp*obj.Hp^2*R);
         end
-        function initializeTopSys(obj)
+        function initializeRoofSys(obj)
             % computes the linear RC system for the storage tank base
-            N = size(obj.topInsulation, 1); 
+            N = size(obj.roofInsulation, 1); 
             obj.Rtop = {}; obj.Ctop = {}; 
             % insulation layer capacitance and resistance
             for i = 1:N
-                obj.Rtop{i, 1} = obj.topInsulation{i, 1};
-                obj.Ctop{i, 1} = obj.topInsulation{i, 1};
-                t = obj.topInsulation{i, 2}(2) - ...
-                                          obj.topInsulation{i, 2}(1);
-                k_ = obj.topInsulation{i, 3};
-                rho_ = obj.topInsulation{i, 4};
-                c_ = obj.topInsulation{i, 5};
-                obj.Rtop{i, 2} = t/(pi*(obj.bp*obj.Hp)^2*k_);
+                obj.Rtop{i, 1} = obj.roofInsulation{i, 1};
+                obj.Ctop{i, 1} = obj.roofInsulation{i, 1};
+                t = (obj.roofInsulation{i, 2}(2) - ...
+                                          obj.roofInsulation{i, 2}(1))*obj.H/obj.Hp;
+                k_ = obj.roofInsulation{i, 3};
+                rho_ = obj.roofInsulation{i, 4};
+                c_ = obj.roofInsulation{i, 5};
+                obj.Rtop{i, 2} = t/(pi*(obj.b*obj.H)^2*k_);
                 obj.Ctop{i, 2} = rho_*c_*t;
             end
             % convective resistance
             obj.Rtop{N + 1, 1} = 'convection';
-            obj.Rtop{N + 1, 2} = 1/(pi*(obj.bp*obj.Hp)^2*obj.hInf);
+            obj.Rtop{N + 1, 2} = 1/(pi*(obj.b*obj.H)^2*obj.hInf);
             % time constants
             obj.tauTop = NaN*ones(N, 2);
-            obj.tauTop(:, 1) = obj.Hp^2./(obj.alphapPacked* ...
+            obj.tauTop(:, 1) = obj.H^2./(obj.alphapPacked* ...
                               [obj.Ctop{:, 2}].*[obj.Rtop{1:end-1, 2}]);
-            obj.tauTop(:, 2) = obj.Hp^2./(obj.alphapPacked* ...
+            obj.tauTop(:, 2) = obj.H^2./(obj.alphapPacked* ...
                                 [obj.Ctop{:, 2}].*[obj.Rtop{2:end, 2}]);
             % state-space system
             obj.Atop = spdiags([-(obj.tauTop(:, 1) + obj.tauTop(:, 2)), ...
@@ -2125,60 +2178,61 @@ classdef FF < handle
         function initializeBaseSys(obj)
             % computes the linear RC system for the storage tank base
             N = size(obj.baseInsulation, 1); 
-            obj.Rbase = {}; obj.Cbase = {}; 
+            obj.Rbase = {}; obj.CapBase = {}; 
             % insulation layer capacitance and resistance
             for i = 1:N
                 obj.Rbase{i, 1} = obj.baseInsulation{i, 1};
-                obj.Cbase{i, 1} = obj.baseInsulation{i, 1};
-                t = obj.baseInsulation{i, 2}(2) - ...
-                                          obj.baseInsulation{i, 2}(1);
+                obj.CapBase{i, 1} = obj.baseInsulation{i, 1};
+                t = abs((obj.baseInsulation{i, 2}(2) - ...
+                                 obj.baseInsulation{i, 2}(1))); %*obj.H/obj.Hp;
                 k_ = obj.baseInsulation{i, 3};
                 rho_ = obj.baseInsulation{i, 4};
                 c_ = obj.baseInsulation{i, 5};
-                obj.Rbase{i, 2} = t/(pi*(obj.bp*obj.Hp)^2*k_);
-                obj.Cbase{i, 2} = rho_*c_*t;
+                obj.Rbase{i, 2} = t/(pi*(obj.b*obj.Hp)^2*k_);
+                obj.CapBase{i, 2} = rho_*c_*t*pi*(obj.b*obj.Hp)^2;
             end
             % convective resistance
             obj.Rbase{N + 1, 1} = 'convection';
-            obj.Rbase{N + 1, 2} = 1/(pi*(obj.bp*obj.Hp)^2*obj.hInf);
+            obj.Rbase{N + 1, 2} = 1/(pi*(obj.b*obj.Hp)^2*obj.hInf);
             % time constants
             obj.tauBase = NaN*ones(N, 2);
             obj.tauBase(:, 1) = obj.Hp^2./(obj.alphapPacked* ...
-                              [obj.Cbase{:, 2}].*[obj.Rbase{1:end-1, 2}]);
+                              [obj.CapBase{:, 2}].*[obj.Rbase{1:end-1, 2}]);
             obj.tauBase(:, 2) = obj.Hp^2./(obj.alphapPacked* ...
-                                [obj.Cbase{:, 2}].*[obj.Rbase{2:end, 2}]);
+                                [obj.CapBase{:, 2}].*[obj.Rbase{2:end, 2}]);
             % state-space system
             obj.Abase = spdiags([-(obj.tauBase(:, 1) + obj.tauBase(:, 2)), ...
                         obj.tauBase(:, 1), obj.tauBase(:, 2)], ...
                         [0, 1, -1], N, N)';
             obj.Bbase = zeros(N, 1); obj.Bbase(1) = obj.tauBase(1, 1);
             obj.Cbase = [zeros(1, N); eye(N)]; 
-            obj.Cbase(1) = -(obj.T0 - obj.Tinf)/obj.Rbase{1, 2};
+            obj.Cbase(1) = -(obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
             obj.Dbase = zeros(N+1, 1);
-            obj.Dbase(1) = (obj.T0 - obj.Tinf)/obj.Rbase{1, 2};
+            obj.Dbase(1) = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
             obj.baseSys = ...
                 ss(full(obj.Abase), obj.Bbase, obj.Cbase, obj.Dbase); 
             % initialize state variables and boundary condition
-            if isempty(obj.thetaBase), obj.thetaBase = zeros(N, 1); end
+            if isempty(obj.thetaBase), obj.thetaBase = 0*ones(N, 1); end
             computeBaseSys(obj);
         end
-        function initializeWallSys(obj)
+        function initializeWallSys(obj, sensitivity)
             % computes the linear RC system for the storage tank base
+            if nargin < 2, sensitivity = 0; end
             N = size(obj.wallInsulation, 1); 
-            obj.Rwall = {}; obj.Cwall = {}; 
+            obj.Rwall = {}; obj.CapWall = {}; 
+            w_ = zeros(N, 1);
             % insulation layer capacitance and resistance
             for i = 1:N
                 obj.Rwall{i, 1} = obj.wallInsulation{i, 1};
-                obj.Cwall{i, 1} = obj.wallInsulation{i, 1};
-                r1 = obj.wallInsulation{i, 2}(1);
-                r2 = obj.wallInsulation{i, 2}(2);
-                t = obj.wallInsulation{i, 2}(2) - ...
-                                          obj.wallInsulation{i, 2}(1);
+                obj.CapWall{i, 1} = obj.wallInsulation{i, 1};
+                r1 = obj.wallInsulation{i, 2}(1); %*obj.H/obj.Hp;
+                r2 = obj.wallInsulation{i, 2}(2); %*obj.H/obj.Hp;
+                w_(i) = r2 - r1;
                 k_ = obj.wallInsulation{i, 3};
                 rho_ = obj.wallInsulation{i, 4};
                 c_ = obj.wallInsulation{i, 5};
                 obj.Rwall{i, 2} = log(r2/r1)/(2*pi*obj.Hp*k_);
-                obj.Cwall{i, 2} = rho_*c_*t;
+                obj.CapWall{i, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
             end
             % convective resistance
             obj.Rwall{N + 1, 1} = 'convection';
@@ -2186,25 +2240,123 @@ classdef FF < handle
             % time constants
             obj.tauWall = NaN*ones(N, 2);
             obj.tauWall(:, 1) = obj.Hp^2./(obj.alphapPacked* ...
-                                [obj.Cwall{:, 2}].*[obj.Rwall{1:end-1, 2}]);
+                                [obj.CapWall{:, 2}].*[obj.Rwall{1:end-1, 2}]);
             obj.tauWall(:, 2) = obj.Hp^2./(obj.alphapPacked* ...
-                                [obj.Cwall{:, 2}].*[obj.Rwall{2:end, 2}]);
+                                [obj.CapWall{:, 2}].*[obj.Rwall{2:end, 2}]);
             % state-space system
             obj.Awall = spdiags([-(obj.tauWall(:, 1) + obj.tauWall(:, 2)), ...
                         obj.tauWall(:, 1), obj.tauWall(:, 2)], ...
                         [0, 1, -1], N, N)';
             obj.Bwall = zeros(N, 1); obj.Bwall(1) = obj.tauWall(1, 1);
-            obj.Cwall = [zeros(1, N); eye(N)];  
-            obj.Cwall(1) = -(obj.T0 - obj.Tinf)/obj.Rwall{1, 2};
-            obj.Dwall = zeros(N+1, 1);
-            obj.Dwall(1) = (obj.T0 - obj.Tinf)/obj.Rwall{1, 2};
+            obj.Cwall = [zeros(N); eye(N)];
+            for i = 1:N
+                obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                if i ~= 1
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                end
+            end
+            obj.Dwall = zeros(2*N, 1);
+            obj.Dwall(1) = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.bp*obj.Hp^2);
             obj.wallSys = ...
                 ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);
             % initialize state variables and boundary condition   
-            if isempty(obj.thetaWall), obj.thetaWall = zeros(N, 1); end
+            if isempty(obj.thetaWall), obj.thetaWall = 0*ones(N, 1); end
             computeWallSys(obj);
+            % construct sensitivity model
+            if sensitivity
+                % compute the set of non-dimensional time constant partials
+                obj.dTauwdr = zeros(N, N+1);
+                for i = 1:N
+                    for j = 1:i+1
+                        if j == N + 1
+                            obj.dTauwdr(i, j) = 0;
+                        else
+                            ri = obj.wallInsulation{i, 2}(1);
+                            rip1 = obj.wallInsulation{i, 2}(2);
+                            rj = obj.wallInsulation{j, 2}(1);
+                            rjp1 = obj.wallInsulation{j, 2}(2);
+                            wSumi = obj.b*obj.Hp + sum(w_(1:i));
+                            wSumj = obj.b*obj.Hp + sum(w_(1:j));
+                            if i == 1
+                                wSumim1 = obj.b*obj.Hp;
+                            else
+                                wSumim1 = obj.b*obj.Hp + sum(w_(1:i-1));
+                            end
+                            if j == 1
+                                wSumjm1 = obj.b*obj.Hp;
+                            else
+                                wSumjm1 = obj.b*obj.Hp + sum(w_(1:j-1));
+                            end
+                            kj = obj.wallInsulation{j, 3};
+                            rhoi = obj.wallInsulation{i, 4};
+                            ci = obj.wallInsulation{i, 5};
+                            if i == j
+                                obj.dTauwdr(i, j) = 2*obj.Hp^2*kj/ ...
+                                    (rhoi*ci*obj.alphapPacked) ...
+                                    *-2*wSumi*(wSumi^2 - wSumim1^2)^-2 ...
+                                    *(log(wSumj/wSumjm1))^-1 - 1/wSumj ...
+                                    *(log(wSumj/wSumjm1))^-2*(wSumi^2 - wSumim1^2)^-1;
+                            else
+                               obj.dTauwdr(i, j) = 2*obj.Hp^2*kj/ ...
+                                    (rhoi*ci*obj.alphapPacked) ...
+                                    *-2*wSumi*(wSumi^2 - wSumim1^2)^-2 ...
+                                    *(log(wSumj/wSumjm1))^-1; 
+                            end 
+                        end
+                    end
+                end
+                % compute sensitivity matrices
+                obj.dAwdr = cell(N, 1);
+                obj.dBwdr = cell(N, 1);
+                obj.dCwdr = cell(2*N, N);
+                obj.dDwdr = cell(2*N, 1);
+                for i = 1:N
+                    obj.dAwdr{i} = zeros(N);
+                    obj.dBwdr{i} = zeros(N, 1);
+                    obj.dCwdr{i} = zeros(2*N, N);
+                    obj.dDwdr{i} = zeros(2*N, 1);
+                    for j = i:N
+                        kj = obj.wallInsulation{j, 3};
+                        rj = obj.wallInsulation{j, 2}(1);
+                        rjp1 = obj.wallInsulation{j, 2}(2);
+                        if j == 1
+                            obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
+                                               obj.dTauwdr(j, j+1));
+                            obj.dAwdr{i}(j, j+1) = obj.dTauwdr(j, j+1);
+                            obj.dBwdr{i}(j) = obj.dTauwdr(j, j);
+                            obj.dCwdr{i}(i, i) = kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                            obj.dDwdr{i}(i) = -kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                        elseif j == N
+                            obj.dAwdr{i}(j, j-1) = obj.dTauwdr(j, j);
+                            obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
+                                               obj.dTauwdr(j, j+1)); 
+                            obj.dCwdr{i}(j, j) = kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                            obj.dCwdr{i}(j, j-1) = -kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                        else
+                            obj.dAwdr{i}(j, j-1) = obj.dTauwdr(j, j);
+                            obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
+                                               obj.dTauwdr(j, j+1));                        
+                            obj.dAwdr{i}(j, j+1) = obj.dTauwdr(j, j+1); 
+                            obj.dCwdr{i}(j, j) = kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                            obj.dCwdr{i}(j, j-1) = -kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                        end
+                    end
+                    A_ = full(obj.Awall);
+                    B_ = [obj.dBwdr{i}, obj.dAwdr{i}];
+                    C_ = obj.Cwall;
+                    D_ = [obj.dDwdr{i}, obj.dCwdr{i}];
+                    obj.swrSys{i} = ss(A_, B_, C_, D_);
+                    obj.swr{i} = zeros(N, 1);
+                end
+            end
         end
-        function y = computeTopSys(obj, u, Fo_)
+        function y = computeRoofSys(obj, u, Fo_)
             % computes the heat flux leaving the
             if nargin < 2, u = zeros(2, 1); end
             if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
@@ -2219,15 +2371,76 @@ classdef FF < handle
             if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
             y = lsim(obj.baseSys, u, Fo_, obj.thetaBase);
             obj.qLossB = y(end, 1); obj.thetaBase = y(end, 2:end);
-            obj.g2 = -0.05*y(end, 1)*obj.H/(obj.k*(obj.T0 - obj.Tinf));
+            obj.g2 = -y(end, 1)*obj.H/(obj.k*(obj.T0 - obj.Tinf));
+%             obj.g2 = obj.g2*(1 - exp(-obj.FoNow./obj.tauW1));
         end
         function y = computeWallSys(obj, u, Fo_)
             % computes the heat flux leaving the wall
             if nargin < 2, u = ones(2, 1); end
             if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
+            N = size(obj.wallInsulation, 1);
             y = lsim(obj.wallSys, u, Fo_, obj.thetaWall);
-            obj.qLossW = y(end, 1); obj.thetaWall = y(end, 2:end);
+            obj.qLossW = y(end, 1); obj.thetaWall = y(end, N+1:end);
             obj.g4 = y(end, 1)*obj.H/(obj.k*(obj.T0 - obj.Tinf));
+%             obj.g4 = obj.g4*(1 - exp(-obj.FoNow./obj.tauW1));
+        end
+        function y = computeWallSensitivityR(obj, u, yss, Fo_)
+            % computes the time propogation of the sensitivity w.r.t the
+            % thickness of wall layers
+            initializeWallSys(obj, 1);
+            N = size(obj.wallInsulation, 1);
+            yW_ = computeWallSys(obj, u, Fo_);
+            x = yW_(:, N+1:end);
+            u_ = [u; x'];
+            y = cell(2*N, 1);
+            for i = 1:N
+                y{i} = lsim(obj.swrSys{i}, u_, Fo_, obj.swr{i});
+                y{i}(:, 1:N) = y{i}(:, 1:N)/obj.H;
+            end
+        end
+        function y = computeSteadyWallSensitivityR(obj, xss, uss)
+            % computes the steady state sensitivity metric for a given
+            % steady state and steady state input
+            initializeWallSys(obj, 1);
+            N = size(obj.wallInsulation, 1);
+            y = cell(N, 1);
+            for i = 1:N
+               spss = -obj.Awall\([obj.dAwdr{i}, obj.dBwdr{i}]*[xss; uss]);
+               y{i} = obj.Cwall*spss + [obj.dCwdr{i}, obj.dDwdr{i}]*[xss; uss];                
+            end
+        end
+        function [y, qss, qppss] = computeSteadyWallFluxSensitivityR(obj)
+            % computes the steady state sensitivity of the wall heat loss
+            % to each of the wall layer thicknesses
+            N = size(obj.wallInsulation, 1);
+            Rtot = sum(cell2mat(obj.Rwall(:, 2)));
+            qss = (obj.T0 - obj.Tinf)/Rtot;
+            y = zeros(N, 1); qppss = zeros(N, 1);
+            w_ = zeros(N, 1); wSumi = zeros(N, 1); wSumim1 = zeros(N, 1);
+            for i = 1:N
+                r1 = obj.wallInsulation{i, 2}(1);
+                r2 = obj.wallInsulation{i, 2}(2);
+                w_(i) = r2 - r1;
+                qppss(i) = qss/(2*pi*r1*obj.Hp);
+                wSumi(i) = obj.b*obj.Hp + sum(w_(1:i));
+                if i == 1
+                    wSumim1(i) = obj.b*obj.Hp;
+                else
+                    wSumim1(i) = obj.b*obj.Hp + sum(w_(1:i-1));
+                end                
+            end
+            for i = 1:N
+                for j = i:N
+                    ki = obj.wallInsulation{i, 3};
+                    if i == j
+                        dRtotdwi = (wSumi(i)*2*pi*obj.Hp*ki)^(-1);                        
+                    else
+                        dRtotdwi = dRtotdwi + ...
+                            (1/wSumi(i) - 1/wSumim1(i))/(2*pi*obj.Hp*ki);                        
+                    end
+                end
+               y(i) = -Rtot^-2*(obj.T0 - obj.Tinf)*dRtotdwi;                 
+            end
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % storage bin base and wall 1D continuous model
@@ -2413,9 +2626,9 @@ classdef FF < handle
             end
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % storage bin base and wall 2D continuous model
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
-        function computeThetaW(obj, Fo_)
+        % storage bin base and wall 2D continuous model (old)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function computeThetaW(obj, Fo_) 
             % computes the bin wall temperature distribution at time Fo_
             % using the stored (or default) initial condition and domain
             % knowledge
@@ -2620,11 +2833,11 @@ classdef FF < handle
                         if length(Fo_) == 1
                             C = 0;
                         elseif length(Fo_) == 2
-                            C = trapz(Fo_, obj.IBCW{n}.*XWt(obj, -Fo_, beta_, ...
+                            C = trapz(Fo_, obj.IBCW{n}.*XWt(obj, -Fo_', beta_, ...
                                                   eta_, alphai(i)));
                         else
                             ft = simpsonIntegrator(obj, Fo_);
-                            C = (obj.IBCW{n}.*XWt(obj, -Fo_, beta_, eta_, ...
+                            C = (obj.IBCW{n}.*XWt(obj, -Fo_', beta_, eta_, ...
                                                     alphai(i)))*ft';
                         end
                         if C < 1e-5, C = 0; end
@@ -2676,99 +2889,7 @@ classdef FF < handle
                     obj.thetaWBC{i} = obj.thetaWBC{i} + C*F*Z'*R;                 
                 end
             end                     
-        end
-        function [x, y, xp, yp] = phiW(~, r_, eta_)
-            % r-dimension eigenfunctions with eigenvalue, eta_, and thermal
-            % diffusivity alpha_
-            if eta_ < 1e-15
-                x = 1; y = log(r_); xp = 0; yp = 1/r_;
-            else
-                x = besselj(0, eta_*r_); y = bessely(0, eta_*r_);
-                xp = -eta_.*besselj(1, eta_*r_); 
-                yp = -eta_.*bessely(1, eta_*r_);
-            end
-        end
-        function xi = XWn(~, z_, beta_)
-            % computes z-BVP eigenfunctions for all composite layers with
-            % the corresponding properties (alpha_)
-            xi = cos(beta_*z_);
-        end
-        function [xi, xip] = XWm(~, r_, eta_, A, B)
-            % computes r-BVP eigenfunctions for all composite layers with
-            % the corresponding coefficients defined in A and B
-            if eta_ < 1e-15
-                xi = A + B*log(r_); xip = B./r_;
-            else
-                xi = A*besselj(0, eta_*r_) + B*bessely(0, eta_*r_);
-                xip = -eta_*(A*besselj(1, eta_*r_) + B*bessely(1, eta_*r_));
-            end
-        end
-        function t = XWt(obj, Fo_, beta_, eta_, alphai)
-            % transient component of analytic solutions
-            t = exp(-alphai/obj.alphaPacked*(beta_^2 + eta_^2)*Fo_);
-        end
-        function ni = NWn(obj, beta_)
-            % z-BVP eigenvalue problem norm
-            M = size(obj.wallInsulation, 1);
-            if beta_ < 1e-14, ni = M; else, ni = 0.5*M; end
-        end
-        function ni = NWm(obj, eta_, bWm_)
-            % r-BVP eigenvalue problem norm
-            M = size(obj.wallInsulation, 1);
-            ri = unique([obj.wallInsulation{:, 2}])/obj.Hp;
-            alphai = [obj.wallInsulation{:, 3}]./ ...
-                ([obj.wallInsulation{:, 4}].*[obj.wallInsulation{:, 5}]);
-            ki = [obj.wallInsulation{:, 3}];
-            ni = 0;
-            for i = 1:M
-                A = bWm_(2*i-1); B = bWm_(2*i);
-                r1 = ri(i); r2 = ri(i+1); 
-                q1 = r1*eta_; 
-                q2 = q1*r2/r1;
-                ni = ni + ki(i)/alphai(i)*(0.5*A^2* ...
-                    (r2^2*(besselj(0, q2)^2 + besselj(1, q2)^2) ...
-                    - r1^2*(besselj(0, q1)^2 + besselj(1, q1)^2)) + ...
-                    0.5*B^2*(r2^2*(bessely(0, q2)^2 + bessely(1, q2)^2) ...
-                    - r1^2*(bessely(0, q1)^2 + bessely(1, q1)^2)) + ...
-                    A*B*(r2^2*(besselj(0, q2)*bessely(0, q2) + ...
-                    besselj(1, q2)*bessely(1, q2)) - ...
-                    r1^2*(besselj(0, q1)*bessely(0, q1) + ...
-                    besselj(1, q1)*bessely(1, q1))));
-            end
-        end
-        function zi = ZWn(~, beta_)
-            % transcendental equation for finding r-dimension eigenvalues
-            zi = sin(beta_*1);                       
-        end
-        function zi = ZWm(obj, eta_)
-            % transcendental equation for finding r-dimension eigenvalues
-            [A, ~] = computeAWm(obj, eta_); zi = det(A);
-%             if rcond(A) < 1e-15, zi = 0; end
-            if ~isreal(zi), zi = 1; end         
-        end
-        function [A, c] = computeAWm(obj, eta_)
-            % computes the r-BVP boundary condition matrix
-            M = size(obj.wallInsulation, 1);
-            A = zeros(2*M);
-            c = zeros(2*M-1, 1);
-            ri = unique([obj.wallInsulation{:, 2}])/obj.Hp;
-            ki = [obj.wallInsulation{:, 3}];
-            % fill boundary at inner surface
-            [x, y, xp, yp] = phiW(obj, ri(1), eta_);
-            A(1, 1:2) = [-xp + obj.Biw1*x, -yp + obj.Biw1*y];
-            c(1) = -(-xp + obj.Biw1*x);
-            % fill boundaries at composite connections
-            for i = 1:M-1
-                [x1, y1, xp1, yp1] = phiW(obj, ri(i+1), eta_);
-                [x2, y2, xp2, yp2] = phiW(obj, ri(i+1), eta_);
-                A(2*i:2*i+1, 2*i-1:2*i+2) = [x1, y1, -x2, -y2; ...
-                     ki(i)*xp1, ki(i)*yp1, -ki(i+1)*xp2, -ki(i+1)*yp2]; 
-                if i == 1, c(2:3) = [-x1; -ki(i)*xp1]; end 
-            end
-            % fill exterior surface boundary
-            [x, y, xp, yp] = phiW(obj, ri(end), eta_);
-            A(end, end-1:end) = [xp + obj.Biw2*x, yp + obj.Biw2*y];                        
-        end
+        end      
         function c = FourierCoefficientGW(obj, beta_, eta_, bWm_)
             % computes fourier coefficient for given inputs for the
             % initial condition eigenvalue problem of the composite wall
@@ -2829,78 +2950,8 @@ classdef FF < handle
 %                                                           alphai(i)))*ft';
 %                 end  
             end
-        end
-        function computeBetaW(obj, ShowPlot)
-            M = size(obj.wallInsulation, 1);
-            interval = linspace(0, obj.pfW, obj.pW);   % interval/spacing 
-                                                     % of root calculation
-            rn = NaN*ones(obj.pW, 1);              % roots initialization
-            options = optimset('TolX', 1e-15);
-            for n = 1:M
-                for i = 1:obj.pW
-                    rn(i) = fzero(@(beta_) ...
-                        ZWn(obj, beta_), interval(i), options);
-                end
-                obj.betaW = rn(diff(rn)>1e-10); % only keep unique roots
-                obj.betaW(1) = 0;
-                obj.betaWStatic = obj.betaW;
-                obj.IBCW = cell(length(obj.betaW), 1);
-            end            
-            % plot to check solutions
-            if nargin > 1 && ShowPlot
-                figure('Units', 'normalized', 'Position', [0 0 0.4 0.25]);
-                plot(interval, ZWn(obj, interval), '-k');
-                hold on
-                plot(obj.betaW, ZWn(obj, obj.betaW), '.r');
-                legend('$Z_n(\hat{\beta})$', '$\beta_n$', 'interpreter', ...
-                    'latex', 'FontSize', 14, 'NumColumns', 2);
-                xlabel('$\hat{\beta}$', 'interpreter', 'latex', ...
-                    'FontSize', 14);
-                ylabel('$Z_n(\hat{\beta})$', 'interpreter', 'latex', ...
-                    'FontSize', 14);
-                xlim([0, obj.pfW]);
-                hold off 
-            end                   
-        end                  
-        function computeEtaW(obj, ShowPlot)
-            % computes r-BVP eigenvalues, corresponding boundary
-            % condition matrices, and eigenfunction coefficients
-            interval = linspace(1, obj.qfW, obj.qW);   % interval/spacing 
-                                                     % of root calculation
-            rm = NaN*ones(obj.qW, 1);                 % roots initialization
-            options = optimset('TolX', 1e-15);
-            for i = 1:obj.qW
-                rm(i) = fzero(@(eta_) ZWm(obj, eta_), interval(i), options);
-            end
-            etaW_ = rm(diff(rm) > 1e-10);         % only keep unique roots
-            etaW_ = etaW_(etaW_ > 1e-10);   % remove zeros  
-            % save eta and eta dependencies for future reference
-            obj.etaWStatic = etaW_;
-            obj.etaW = etaW_;
-            obj.bWmStatic = cell(length(obj.etaW), 1);
-            for i = 1:length(obj.etaW)                            
-                [A_, c] = computeAWm(obj, obj.etaW(i));
-                b_ = A_(2:end, 2:end)\c;
-                obj.bWmStatic{i} = [1; b_]; 
-            end
-            % plot to check solutions
-            if nargin > 1 && ShowPlot
-                figure('Units', 'normalized', 'Position', [0 0 0.4 0.25]);
-                for i = 1:length(interval)
-                    plot(interval(i), ZWm(obj, interval(i)), '.k');
-                    hold on
-                end
-                for i = 1:length(obj.etaW)
-                    plot(obj.etaW(i), ZWm(obj, obj.etaW(i)), '.r');
-                end
-                xlabel('$\hat{\eta}$', 'interpreter', 'latex', 'FontSize', 14);
-                ylabel('$Z_m(\hat{\eta})$', 'interpreter', 'latex',...
-                    'FontSize', 14);
-                xlim([0, obj.qfW]);
-                hold off 
-            end    
-        end
-        function computeGWCnm(obj, ShowPlot)
+        end       
+        function computeGWCnm_old(obj, ShowPlot)
             % compute new beta values
             if isempty(obj.betaWStatic)
                 if nargin > 1 && ShowPlot
@@ -3053,6 +3104,310 @@ classdef FF < handle
                     hold off 
                 end
             end    
+        end       
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % storage bin base and wall 2D continuous model (new)
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function computeThetaW_new(obj, Fo_)
+            % uses a Green's function heat kernel to compute the current
+            % 2D wall temperature
+            if isempty(obj.thetaW), buildWall(obj); end
+            if isempty(obj.betaW), computeBetaW(obj); end
+            if isempty(obj.etaW), computeEtaW(obj); end
+%             if isempty(obj.GWCnm), computeGWCnmSimilarity(obj); end
+            if isempty(obj.gW1)
+                obj.gW1 = obj.Biw1*ones(length(obj.zbarW), 1); 
+            end
+            fz = simpsonIntegrator(obj, obj.zbarW);
+            M = size(obj.wallInsulation, 1);
+            k1 = obj.wallInsulation{1, 3};
+            alpha1 = [obj.wallInsulation{1, 3}]./ ...
+                ([obj.wallInsulation{1, 4}].*[obj.wallInsulation{1, 5}]);
+            % compute wall heat kernel for current time
+            if isempty(obj.KWI) 
+                obj.KWI = cell(M, length(obj.betaW), length(obj.etaW)); 
+                obj.KW = cell(M, length(obj.betaW), length(obj.etaW)); 
+            end
+            for i = 1:M
+                alphai = [obj.wallInsulation{i, 3}]./ ...
+                ([obj.wallInsulation{i, 4}].*[obj.wallInsulation{i, 5}]);                
+                obj.thetaW{i} = ...
+                    zeros(length(obj.zbarW), length(obj.rbarW{i}));
+                for n = 1:length(obj.betaW)
+                    for m = 1:length(obj.etaW)
+                        bWm_ = obj.bWm{m};
+                        Ai = bWm_(2*i-1); Bi = bWm_(2*i);
+                        A1 = bWm_(1); B1 = bWm_(2);
+                        beta_ = obj.betaW(n); eta_ = obj.etaW(m);
+                        lambda_ = sqrt(beta_^2 + eta_^2);
+                        if Fo_ == 0
+                            obj.KWI{i, n, m} = 0; obj.KW{i, n, m} = 0;
+                        else
+                            if beta_ > 0
+                                obj.KWI{i, n, m} = [obj.KWI{i, n, m}, ...
+                                    (exp(alphai/obj.alphapPacked ...
+                                    *lambda_^2*Fo_) ...
+                                    *XWn(obj, obj.zbarW, beta_) ...
+                                    .*obj.gW1')*fz'];
+                            else
+                                obj.KWI{i, n, m} = [obj.KWI{i, n, m}, 0];
+                            end
+                            if length(obj.KWI{i, n, m}) == 2
+                                obj.KW{i, n, m} = trapz(obj.Fo(1:2), obj.KWI{i, n, m});
+                            else
+                                ft = simpsonIntegrator(obj, ...
+                                    obj.Fo(1:length(obj.KWI{i, n, m})));
+                                obj.KW{i, n, m} = obj.KWI{i, n, m}*ft';
+                            end
+                        end
+                        F = exp(-alphai/obj.alphapPacked*lambda_^2*Fo_);
+                        C = XWm(obj, obj.rbarW{1}(1), eta_, A1, B1) ...
+                            *obj.KW{i, n, m}/(obj.betaWN(n)*obj.etaWN(m));
+                        R = XWm(obj, obj.rbarW{i}, eta_, Ai, Bi);
+                        Z = XWn(obj, obj.zbarW, beta_);
+                        obj.thetaW{i} = obj.thetaW{i} + C*F*Z'*R;
+                    end
+                end
+                obj.thetaW{i} = alphai*k1/(obj.alphapPacked*alpha1) ...
+                                                        *obj.thetaW{i};
+            end            
+        end        
+        function xi = XWn(~, z_, beta_)
+            % computes z-BVP eigenfunctions for all composite layers with
+            % the corresponding properties (alpha_)
+            xi = cos(beta_*z_);
+        end
+        function [xi, xip] = XWm(~, r_, eta_, A, B)
+            % computes r-BVP eigenfunctions for all composite layers with
+            % the corresponding coefficients defined in A and B
+            if eta_ < 1e-15
+                xi = A + B*log(r_); xip = B./r_;
+            else
+                xi = A*besselj(0, eta_*r_) + B*bessely(0, eta_*r_);
+                xip = -eta_*(A*besselj(1, eta_*r_) + B*bessely(1, eta_*r_));
+            end
+        end
+        function t = XWt(obj, Fo_, beta_, eta_, alphai)
+            % transient component of analytic solutions
+            t = exp(-alphai/obj.alphaPacked*(beta_^2 + eta_^2)*Fo_);
+        end
+        function [x, y, xp, yp] = phiW(~, r_, eta_)
+            % r-dimension eigenfunctions with eigenvalue, eta_, and thermal
+            % diffusivity alpha_
+            if eta_ < 1e-15
+                x = 1; y = log(r_); xp = 0; yp = 1/r_;
+            else
+                x = besselj(0, eta_*r_); y = bessely(0, eta_*r_);
+                xp = -eta_.*besselj(1, eta_*r_); 
+                yp = -eta_.*bessely(1, eta_*r_);
+            end
+        end  
+        function ni = NWn(obj, beta_)
+            % z-BVP eigenvalue problem norm
+            M = size(obj.wallInsulation, 1);
+            if beta_ < 1e-14, ni = M; else, ni = 0.5*M; end
+        end
+        function ni = NWm(obj, eta_, bWm_)
+            % r-BVP eigenvalue problem norm
+            M = size(obj.wallInsulation, 1);
+            ri = unique([obj.wallInsulation{:, 2}])/obj.Hp;
+            alphai = [obj.wallInsulation{:, 3}]./ ...
+                ([obj.wallInsulation{:, 4}].*[obj.wallInsulation{:, 5}]);
+            ki = [obj.wallInsulation{:, 3}];
+            ni = 0;
+            for i = 1:M
+                A = bWm_(2*i-1); B = bWm_(2*i);
+                r1 = ri(i); r2 = ri(i+1); 
+                q1 = r1*eta_; 
+                q2 = q1*r2/r1;
+                ni = ni + ki(i)/alphai(i)*(0.5*A^2* ...
+                    (r2^2*(besselj(0, q2)^2 + besselj(1, q2)^2) ...
+                    - r1^2*(besselj(0, q1)^2 + besselj(1, q1)^2)) + ...
+                    0.5*B^2*(r2^2*(bessely(0, q2)^2 + bessely(1, q2)^2) ...
+                    - r1^2*(bessely(0, q1)^2 + bessely(1, q1)^2)) + ...
+                    A*B*(r2^2*(besselj(0, q2)*bessely(0, q2) + ...
+                    besselj(1, q2)*bessely(1, q2)) - ...
+                    r1^2*(besselj(0, q1)*bessely(0, q1) + ...
+                    besselj(1, q1)*bessely(1, q1))));
+            end
+        end   
+        function zi = ZWn(~, beta_)
+            % transcendental equation for finding r-dimension eigenvalues
+            zi = sin(beta_*1);                       
+        end
+        function zi = ZWm(obj, eta_)
+            % transcendental equation for finding r-dimension eigenvalues
+            [A, ~] = computeAWm(obj, eta_); zi = det(A);
+%             if rcond(A) < 1e-15, zi = 0; end
+            if ~isreal(zi), zi = 1; end         
+        end
+        function [A, c] = computeAWm(obj, eta_)
+            % computes the r-BVP boundary condition matrix
+            M = size(obj.wallInsulation, 1);
+            A = zeros(2*M);
+            c = zeros(2*M-1, 1);
+            ri = unique([obj.wallInsulation{:, 2}])/obj.Hp;
+            ki = [obj.wallInsulation{:, 3}];
+            % fill boundary at inner surface
+            [x, y, xp, yp] = phiW(obj, ri(1), eta_);
+            A(1, 1:2) = [-xp + obj.Biw1*x, -yp + obj.Biw1*y];
+            c(1) = -(-xp + obj.Biw1*x);
+            % fill boundaries at composite connections
+            for i = 1:M-1
+                [x1, y1, xp1, yp1] = phiW(obj, ri(i+1), eta_);
+                [x2, y2, xp2, yp2] = phiW(obj, ri(i+1), eta_);
+                A(2*i:2*i+1, 2*i-1:2*i+2) = [x1, y1, -x2, -y2; ...
+                     ki(i)*xp1, ki(i)*yp1, -ki(i+1)*xp2, -ki(i+1)*yp2]; 
+                if i == 1, c(2:3) = [-x1; -ki(i)*xp1]; end 
+            end
+            % fill exterior surface boundary
+            [x, y, xp, yp] = phiW(obj, ri(end), eta_);
+            A(end, end-1:end) = [xp + obj.Biw2*x, yp + obj.Biw2*y];                        
+        end
+        function computeBetaW(obj, ShowPlot)
+            interval = linspace(0, obj.pfW, obj.pW);   % interval/spacing 
+                                                     % of root calculation
+            rn = NaN*ones(obj.pW, 1);              % roots initialization
+            options = optimset('TolX', 1e-15);
+            for i = 1:obj.pW
+                rn(i) = fzero(@(beta_) ...
+                    ZWn(obj, beta_), interval(i), options);
+            end
+            obj.betaW = rn(diff(rn)>1e-10); % only keep unique roots
+            obj.betaW(1) = 0;
+            obj.betaWN = obj.betaW;
+            for i = 1:length(obj.betaW) 
+                obj.betaWN(i) = NWn(obj, obj.betaW(i));
+            end       
+            % plot to check solutions
+            if nargin > 1 && ShowPlot
+                figure('Units', 'normalized', 'Position', [0 0 0.4 0.25]);
+                plot(interval, ZWn(obj, interval), '-k');
+                hold on
+                plot(obj.betaW, ZWn(obj, obj.betaW), '.r');
+                legend('$Z_n(\hat{\beta})$', '$\beta_n$', 'interpreter', ...
+                    'latex', 'FontSize', 14, 'NumColumns', 2);
+                xlabel('$\hat{\beta}$', 'interpreter', 'latex', ...
+                    'FontSize', 14);
+                ylabel('$Z_n(\hat{\beta})$', 'interpreter', 'latex', ...
+                    'FontSize', 14);
+                xlim([0, obj.pfW]);
+                hold off 
+            end                   
+        end                  
+        function computeEtaW(obj, ShowPlot)
+            % computes r-BVP eigenvalues, corresponding boundary
+            % condition matrices, and eigenfunction coefficients
+            interval = linspace(1, obj.qfW, obj.qW);   % interval/spacing 
+                                                     % of root calculation
+            rm = NaN*ones(obj.qW, 1);                 % roots initialization
+            options = optimset('TolX', 1e-15);
+            for i = 1:obj.qW
+                rm(i) = fzero(@(eta_) ZWm(obj, eta_), interval(i), options);
+            end
+            etaW_ = rm(diff(rm) > 1e-10);         % only keep unique roots
+            etaW_ = etaW_(etaW_ > 1e-10);   % remove zeros  
+            % save eta and eta dependencies for future reference
+            obj.etaWStatic = etaW_;
+            obj.etaW = etaW_;
+            obj.bWm = cell(length(obj.etaW), 1);
+            obj.etaWN = obj.etaW;
+            for i = 1:length(obj.etaW)                            
+                [A_, c] = computeAWm(obj, obj.etaW(i));
+                b_ = A_(2:end, 2:end)\c;
+                obj.bWm{i} = [1; b_]; 
+                obj.etaWN(i) = NWm(obj, obj.etaW(i), obj.bWm{i});
+            end
+            % plot to check solutions
+            if nargin > 1 && ShowPlot
+                figure('Units', 'normalized', 'Position', [0 0 0.4 0.25]);
+                for i = 1:length(interval)
+                    plot(interval(i), ZWm(obj, interval(i)), '.k');
+                    hold on
+                end
+                for i = 1:length(obj.etaW)
+                    plot(obj.etaW(i), ZWm(obj, obj.etaW(i)), '.r');
+                end
+                xlabel('$\hat{\eta}$', 'interpreter', 'latex', 'FontSize', 14);
+                ylabel('$Z_m(\hat{\eta})$', 'interpreter', 'latex',...
+                    'FontSize', 14);
+                xlim([0, obj.qfW]);
+                hold off 
+            end    
+        end
+        function computeGWCnmSimilarity(obj, ShowPlot)
+            % compute new beta values
+            if isempty(obj.betaW)
+                if nargin > 1 && ShowPlot
+                    computeBetaW(obj, true);
+                else
+                    computeBetaW(obj);
+                end
+            end
+            % compute eta values if not already populated
+            if isempty(obj.etaW)
+                if nargin > 1 && ShowPlot
+                    computeEtaW(obj, true);
+                else
+                    computeEtaW(obj);
+                end     
+            end           
+            if obj.miW > length(obj.etaW) 
+                    miW_ = length(obj.etaW); 
+            else
+                    miW_ = obj.miW;
+            end
+            if obj.niW > length(obj.betaW) 
+                niW_ = length(obj.betaW); 
+            else
+                niW_ = obj.niW;
+            end
+            k1 = obj.wallInsulation{1, 3};
+            alpha1 = [obj.wallInsulation{1, 3}]./ ...
+                ([obj.wallInsulation{1, 4}].*[obj.wallInsulation{1, 5}]);
+            CnmTemp = NaN*ones(niW_, miW_);
+            betaTemp = NaN*ones(niW_, miW_);
+            etaTemp = NaN*ones(niW_, miW_); 
+            bWmTemp = cell(niW_, miW_);
+            for i = 1:niW_
+                for j = 1:miW_
+                    if obj.betaW(i) == 0
+                        CnmTemp(i, j) = 0;
+                    else
+                        CnmTemp(i, j) = k1/alpha1*XWm(obj, obj.rbarW{1}(1), ...
+                            obj.etaW(j), obj.bWm{j}(1), obj.bWm{j}(2))/ ...
+                            (obj.betaWN(i)*obj.etaWN(j));
+                    end
+                    betaTemp(i, j) = obj.betaW(i);
+                    etaTemp(i, j) = obj.etaW(j);
+                    bWmTemp(i, j) = obj.bWm(j);
+                end
+            end
+            obj.cGet = abs(CnmTemp) > obj.climW;
+            Cnm_ = CnmTemp(obj.cGet);
+            obj.betaW = betaTemp(obj.cGet);
+%             w = obj.betaW*pi/max(obj.beta); 
+%             sigmaN = sin(w)./w;
+            sigmaN = ones(length(obj.betaW), 1);
+            obj.GWCnm = sigmaN.*Cnm_;
+            obj.etaW = etaTemp(obj.cGet);
+            obj.bWm = bWmTemp(obj.cGet);
+            cGetIdx = find(obj.cGet);  
+            % plot to check solutions
+            if nargin > 1 && ShowPlot
+                figure('Units', 'normalized', ...
+                    'Position', [0 0 0.4 0.25], 'Visible', 'on');
+                plot(cGetIdx, Cnm_, 'rx');
+                hold on
+                plot(1:length(CnmTemp(:)), CnmTemp(:), '-k');
+                legend('Used', 'Computed', 'interpreter', 'latex', ...
+                    'FontSize', 14, 'NumColumns', 2);
+                xlabel('$nm$', 'interpreter', 'latex', 'FontSize', 14);
+                ylabel('$C_{nm}(\beta_n, \eta_m)$', 'interpreter', ...
+                    'latex', 'FontSize', 14);
+                xlim([0, niW_*miW_]);
+                hold off 
+            end    
         end
         function buildWall(obj)
             % assembles wall parameters from the materials defined in
@@ -3197,7 +3552,9 @@ classdef FF < handle
             thetaCMatch = obj.C2S('full');
             theta_(1:nl, 1:ms-1) = flipud(thetaCMatch(:, 1:end-1));
             % overlay bulk junction temperature in top-center junction
-            theta_(nl+1:n, 1:ms-1) = mean(obj.thetaChat); 
+            theta_(nl+1:n, 1:ms-1) = mean(obj.thetaChat);
+            % compute heat loss at wall, base, and top
+            
             % append to theta cell array that will be saved to drive
             obj.theta{kn_, 1} = theta_;
             % store corresponding mesh arrays
@@ -3207,22 +3564,30 @@ classdef FF < handle
             obj.theta{kn_, 4} = k_;
             obj.theta{kn_, 5} = obj.Fo(k_);
             obj.theta{kn_, 6} = obj.FoMode{1, k_};
-            obj.theta{kn_, 7} = obj.thetaW;
+            obj.theta{kn_, 7} = obj.thetaWall;
             obj.theta{kn_, 8} = obj.thetaBase;
             obj.theta{kn_, 9} = obj.qWall;
             obj.theta{kn_, 10} = obj.thetaA;
-            obj.theta{kn_, 11} = obj.qLossW;
-            obj.theta{kn_, 12} = obj.qLossB;
-            obj.theta{kn_, 13} = obj.qLossT;
-            obj.theta{kn_, 14} = obj.qTopP;
+            [qw, qb, qt, qTot] = computeBinHeatLoss(obj, ...
+                theta_(:, end-1:end), ...
+                obj.theta{kn_, 3}(end) - obj.theta{kn_, 3}(end-1), obj.theta{kn_, 2}, ...
+                theta_(1:2, :), ...
+                obj.theta{kn_, 2}(2) - obj.theta{kn_, 2}(1), obj.theta{kn_, 3}, ...
+                theta_(end-2:end-1, :), ...
+                obj.theta{kn_, 2}(end-1) - obj.theta{kn_, 2}(end-2), obj.theta{kn_, 3});
+            obj.theta{kn_, 11} = qw; %obj.qLossW;
+            obj.theta{kn_, 12} = qb; %obj.qLossB;
+            obj.theta{kn_, 13} = qt; %obj.qLossT;
+            obj.theta{kn_, 14} = qTot; %obj.qTopP;
+            obj.theta{kn_, 15} = 0;
             if verify_conservation
                 computeEnergyD(obj);
-                obj.theta{kn_, 15} = obj.energy;
+                obj.theta{kn_, 16} = obj.energy;
             end
             if sensitivity
-                obj.theta{kn_, 16} = obj.scPe;
-                obj.theta{kn_, 17} = obj.scQc;
-                obj.theta{kn_, 18} = obj.sca;
+                obj.theta{kn_, 17} = obj.scPe;
+                obj.theta{kn_, 18} = obj.scQc;
+                obj.theta{kn_, 19} = obj.sca;
             end
             % save if last time step
             if k_ == length(obj.Fo)
@@ -3239,23 +3604,32 @@ classdef FF < handle
             kn_ = mod(k_-1, obj.ls) + 1;                        
             % append to theta cell array that will be saved to drive
             obj.theta{kn_, 1} = obj.thetaH;
+            % compute heat loss at wall, base, and top
+            [qw, qb, qt, qTot] = computeBinHeatLoss(obj, ...
+                obj.thetaH(:, end-1:end), ...
+                obj.rbarH(end) - obj.rbarH(end-1), obj.zbarH, ...
+                obj.thetaH(1:2, :), ...
+                obj.zbarH(2) - obj.zbarH(1), obj.rbarH, ...
+                obj.thetaH(end-2:end-1, :), ...
+                obj.zbarH(end-1) - obj.zbarH(end-2), obj.rbarH);
             % store corresponding mesh arrays
             obj.theta{kn_, 2} = obj.zbarH;
             obj.theta{kn_, 3} = obj.rbarH; 
             obj.theta{kn_, 4} = k_;
             obj.theta{kn_, 5} = obj.Fo(k_);
             obj.theta{kn_, 6} = obj.FoMode{1, k_};
-            obj.theta{kn_, 7} = obj.thetaW;
+            obj.theta{kn_, 7} = obj.thetaWall;
             obj.theta{kn_, 8} = obj.thetaBase;
             obj.theta{kn_, 9} = obj.qWall;
             obj.theta{kn_, 10} = obj.thetaA;
-            obj.theta{kn_, 11} = obj.qLossW;
-            obj.theta{kn_, 12} = obj.qLossB;
-            obj.theta{kn_, 13} = obj.qLossT;
-            obj.theta{kn_, 14} = obj.qTopP;
+            obj.theta{kn_, 11} = qw; %obj.qLossW;
+            obj.theta{kn_, 12} = qb; %obj.qLossB;
+            obj.theta{kn_, 13} = qt; %obj.qLossT;
+            obj.theta{kn_, 14} = qTot; %obj.qTopP;
+            obj.theta{kn_, 15} = obj.QChp*obj.rhopPack*obj.Fo2t(obj.df, 1)*obj.cpp*(obj.T0 - obj.Tinf)/1000;
             if verify_conservation
                 computeEnergyH(obj);
-                obj.theta{kn_, 15} = obj.energy;
+                obj.theta{kn_, 16} = obj.energy;
             end
             % save if last time step
             if k_ == length(obj.Fo)
@@ -3272,23 +3646,32 @@ classdef FF < handle
             kn_ = mod(k_-1, obj.ls) + 1;                        
             % append to theta cell array that will be saved to drive
             obj.theta{kn_, 1} = obj.thetaH;
+            % compute heat loss at wall, base, and top
+            [qw, qb, qt, qTot] = computeBinHeatLoss(obj, ...
+                obj.thetaH(:, end-1:end), ...
+                obj.rbarH(end) - obj.rbarH(end-1), obj.zbarH, ...
+                obj.thetaH(1:2, :), ...
+                obj.zbarH(2) - obj.zbarH(1), obj.rbarH, ...
+                obj.thetaH(end-2:end-1, :), ...
+                obj.zbarH(end-1) - obj.zbarH(end-2), obj.rbarH);
             % store corresponding mesh arrays
             obj.theta{kn_, 2} = obj.zbarH;
             obj.theta{kn_, 3} = obj.rbarH; 
             obj.theta{kn_, 4} = k_;
             obj.theta{kn_, 5} = obj.Fo(k_);
             obj.theta{kn_, 6} = obj.FoMode{1, k_};
-            obj.theta{kn_, 7} = obj.thetaW;
+            obj.theta{kn_, 7} = obj.thetaWall;
             obj.theta{kn_, 8} = obj.thetaBase;
             obj.theta{kn_, 9} = obj.qWall;
             obj.theta{kn_, 10} = obj.thetaA;
-            obj.theta{kn_, 11} = obj.qLossW;
-            obj.theta{kn_, 12} = obj.qLossB;
-            obj.theta{kn_, 13} = obj.qLossT;
-            obj.theta{kn_, 14} = obj.qTopP;
+            obj.theta{kn_, 11} = qw; %obj.qLossW;
+            obj.theta{kn_, 12} = qb; %obj.qLossB;
+            obj.theta{kn_, 13} = qt; %obj.qLossT;
+            obj.theta{kn_, 14} = qTot; %obj.qTopP;
+            obj.theta{kn_, 15} = 0;
             if verify_conservation
                 computeEnergyH(obj);
-                obj.theta{kn_, 15} = obj.energy;
+                obj.theta{kn_, 16} = obj.energy;
             end
             % save if last time step
             if k_ == length(obj.Fo)
@@ -3921,6 +4304,25 @@ classdef FF < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % plotting and vizualization
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function s = printStatus(obj, theta_)
+            % prints the current status of storage bin simulation
+            if nargin < 2, theta_ = NaN; end
+            s1 = sprintf('----------------------------------------- \n model time = %1.0f s \n', obj.Fo2t(obj.FoNow));
+            s2 = sprintf(' prototype time = %1.0f s \n', obj.Fo2t(obj.FoNow, 1));
+            s3 = sprintf(' storage mode = %s \n', obj.FoModeNow);
+            if ~isnan(theta_)
+                s4 = sprintf( ' max temperature = %1.0f °C \n', ...
+                                              obj.theta2T(max(theta_, [], 'all')));
+                s5 = sprintf( ' min temperature = %1.0f °C \n', ...
+                                              obj.theta2T(min(theta_, [], 'all')));
+            else
+                s4 = '';
+                s5 = '';
+            end
+            s6 = sprintf(' particle top = %1.2f \n----------------------------------------- \n', obj.ztop);  
+            s = {s1; s2; s3; s4; s5; s6};
+            display(s);
+        end
         function animatePsi(obj, rr, filename)
             % compute theta if empty
             if isempty(obj.psiS)
@@ -4011,7 +4413,70 @@ classdef FF < handle
                     set(tfigs2, 'XData', RW, 'YData', ZW, ...
                       'ZData', thetaw_);
                 end
-                title(sprintf('$t$ = %1.2f s', t), 'interpreter', 'latex', ...
+                title(sprintf('$t$ = %1.2f h', t/3600), 'interpreter', 'latex', ...
+                            'FontSize', 14);
+                pause(rr);
+                % save plot if on save time-step
+                if mod(ii, snapK) == 0
+                    captureDimensionalTemp(obj, ii_);
+                end               
+            end
+        end
+        function animateThetaNoWall(obj, rr, plot_filename, snapK, dimensions, ...
+                                                                prototype)
+            % generate full domain temperature gif to be saved
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'ThetaPlot.gif'; end
+            if nargin < 4, snapK = 1e10; end
+            if nargin < 5, dimensions = 0; end
+            if nargin < 6, prototype = 0; end
+            % initialize domain ,temperature, and velocity distributions
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            z_ = [obj.theta{2, 2}, ...
+                              max(obj.theta{2, 2}), 1 + 1.000001*obj.h];
+            r_ = obj.theta{2, 3};
+            theta_  = [obj.theta{2, 1}; obj.thetaA*ones(2, length(r_))];
+            if dimensions
+                [~, tfigs1] = plotZRTempNoWall(obj, obj.theta2T(theta_), ...
+                                          z_, r_, true);
+                ylabel(colorbar, '$T$ ($^\circ$C)', 'interpreter', ...
+                    'latex', 'FontSize', 14); 
+                caxis([350, 800]);
+            else
+                [~, tfigs1] = plotZRTempNoWall(obj, theta_, z_, r_, true);
+                ylabel(colorbar, '$\theta$', 'interpreter', 'latex', ...
+                'FontSize', 14); 
+                caxis([obj.thetaA, 1]);
+            end
+            gif(plot_filename, 'frame', gcf);
+            % update sequentially
+            for ii = 2:length(obj.Fo)                                      
+                gif;
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                z_ = [obj.theta{ii_, 2}, ...
+                              max(obj.theta{ii_, 2}), 1 + 1.000001*obj.h];
+                r_ = obj.theta{ii_, 3};
+                theta_  = [obj.theta{ii_, 1}; ...
+                                  obj.thetaA*ones(2, length(r_))];                              
+                [R, Z] = meshgrid(r_, z_);                 
+                if dimensions 
+                    set(tfigs1, 'XData', R, 'YData', Z, ...
+                      'ZData', obj.theta2T(theta_));
+                else
+                    set(tfigs1, 'XData', R, 'YData', Z, ...
+                      'ZData', theta_);
+                end
+                title(sprintf('$t$ = %1.2f h', t/3600), 'interpreter', 'latex', ...
                             'FontSize', 14);
                 pause(rr);
                 % save plot if on save time-step
@@ -4108,7 +4573,7 @@ classdef FF < handle
                 'Position', [0 0 0.5 0.3]);  
             if length(obj.Fo) < obj.ls, loadThetaK(obj, length(obj.Fo));  
             else, loadThetaK(obj, obj.ls); end
-            zw_ = obj.zbarW; rw_ = []; thetaw_ = [];
+            zw_ = objzbar.W; rw_ = []; thetaw_ = [];
             [~, zwi_] = min(abs(zw_ - 0.5));
             for i = 1:length(obj.rbarW)
                 rw_ = [rw_, obj.rbarW{i}*obj.Hp]; 
@@ -4122,7 +4587,7 @@ classdef FF < handle
             xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
             ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
             set(gca, 'box', 'off', 'TickDir', 'both', ...
-                'TickLength', [0.01, 0.025], ...l
+                'TickLength', [0.01, 0.025], ...
                 'TickLabelInterpreter', 'latex', 'FontSize', 12)
             [~, k_end] = min(abs(tEnd - obj.Fo2t(obj.Fo, 1)));
             gif(plot_filename, 'frame', gcf);
@@ -4562,7 +5027,178 @@ classdef FF < handle
                 end               
             end
         end
-        function plotWallTemp(obj, prototype)
+        function data = animateRadialTempLine(obj, rr, plot_filename, zCoord, dimensions)            
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'RadialLine.gif'; end  
+            if nargin < 4, zCoord = 0.5; end
+            if nargin < 5, dimensions = 1; end
+            data = {};
+            % wall temp animation for t1
+            figure('Units', 'normalized', 'color', 'white', ...
+                'Position', [0 0 0.5 0.3]);  
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            z_ = obj.theta{2, 2};
+            r_ = obj.theta{2, 3};
+            [~, zwi_] = min(abs(z_ - zCoord));
+            if dimensions
+                thetaLine = obj.theta2T(obj.theta{2, 1}(zwi_, :));
+            else
+                thetaLine = obj.theta{2, 1}(zwi_, :);
+            end            
+            l1 = plot(r_, thetaLine, '-k', 'LineWidth', 2);
+            xlim([min(r_), max(r_)])           
+            timeTitle = title( ...
+                   sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+            xlabel('$r/H$', 'interpreter', 'latex', 'FontSize', 14);  
+            if dimensions
+%                 ylim([600, 800])
+                ylabel(sprintf('$T$($z/H$ = %1.2f) (degC)', zCoord), 'interpreter', 'latex', 'FontSize', 14);
+            else
+%                 ylim([0.6, 1])
+                ylabel(sprintf('$\theta$($z/H$ = %1.2f)', zCoord), 'interpreter', 'latex', 'FontSize', 14);
+            end
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            data{1, 1} = 0;     % (s) time
+            data{1, 2} = r_;
+            data{1, 3} = thetaLine;
+            gif(plot_filename, 'frame', gcf);
+            for k_ = 2:length(obj.Fo)
+                gif;
+                kk_ = mod(k_-1, obj.ls) + 1;
+                t_ = obj.Fo2t(obj.Fo(k_), 1);
+                if kk_ == 1 && k_ ~= length(obj.Fo)
+                    loadTheta(obj, k_+obj.ls-1);
+                end
+                z_ = obj.theta{kk_, 2};
+                r_ = obj.theta{kk_, 3};
+                [~, zwi_] = min(abs(z_ - zCoord));
+                if dimensions
+                    thetaLine = obj.theta2T(obj.theta{kk_, 1}(zwi_, :));   
+                else
+                    thetaLine = obj.theta{kk_, 1}(zwi_, :);
+                end
+                timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
+                set(l1, 'XData', r_, 'YData', thetaLine);
+                data{k_, 1} = t_;
+                data{k_, 2} = r_;
+                data{k_, 3} = thetaLine;
+                pause(rr);
+            end
+        end
+        function data = animateVerticalTempLine(obj, rr, plot_filename, rCoord, dimensions)            
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'VerticalLine.gif'; end  
+            if nargin < 4, rCoord = 0.1; end
+            if nargin < 5, dimensions = 1; end
+            data = {};
+            % wall temp animation for t1
+            figure('Units', 'normalized', 'color', 'white', ...
+                'Position', [0 0 0.3 0.5]);  
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            z_ = obj.theta{2, 2};
+            r_ = obj.theta{2, 3};
+            [~, rwi_] = min(abs(r_ - rCoord));
+            if dimensions
+                thetaLine = obj.theta2T(obj.theta{2, 1}(:, rwi_));
+            else
+                thetaLine = obj.theta{2, 1}(:, rwi_);
+            end            
+            l1 = plot(thetaLine, z_, '-k', 'LineWidth', 2);
+            ylim([min(z_), max(z_)])           
+            timeTitle = title( ...
+                   sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+            ylabel('$z/H$', 'interpreter', 'latex', 'FontSize', 14); 
+            if dimensions
+%                 xlim([600, 800])
+                xlabel(sprintf('$T$($r/H$ = %1.2f) (degC)', rCoord), 'interpreter', 'latex', 'FontSize', 14);
+            else
+%                 xlim([0.6, 1])
+                xlabel(sprintf('$\theta$($r/H$ = %1.2f)', rCoord), 'interpreter', 'latex', 'FontSize', 14);
+            end
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...l
+                'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            data{1, 1} = 0;     % (s) time
+            data{1, 2} = z_;
+            data{1, 3} = thetaLine;
+            gif(plot_filename, 'frame', gcf);
+            for k_ = 2:length(obj.Fo)
+                gif;
+                kk_ = mod(k_-1, obj.ls) + 1;
+                t_ = obj.Fo2t(obj.Fo(k_), 1);
+                if kk_ == 1 && k_ ~= length(obj.Fo)
+                    loadTheta(obj, k_+obj.ls-1);
+                end
+                z_ = obj.theta{kk_, 2};
+                r_ = obj.theta{kk_, 3};
+                [~, rwi_] = min(abs(r_ - rCoord));
+                if dimensions
+                    thetaLine = obj.theta2T(obj.theta{kk_, 1}(:, rwi_));   
+                else
+                    thetaLine = obj.theta{kk_, 1}(:, rwi_);
+                end
+                timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
+                set(l1, 'YData', z_, 'XData', thetaLine);
+                data{k_, 1} = t_;
+                data{k_, 2} = z_;
+                data{k_, 3} = thetaLine;
+                pause(rr);
+            end
+        end
+        function [f, bulkTemp] = plotBulkVolumetricTemp(obj, dimensions)
+            % plots the bulk volumetric temperature in the particle domain
+            if nargin < 2, dimensions = 0; end
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            bulkTemp = zeros(length(obj.Fo), 1);
+            t = zeros(size(obj.Fo));            
+            z_ = obj.theta{2, 2};
+            r_ = obj.theta{2, 3};
+            theta_  = obj.theta{2, 1};
+            fz = simpsonIntegrator(obj, z_);
+            fr = simpsonIntegrator(obj, r_);
+            Ir = 2*pi*(r_.*theta_)*fr';
+            bulkTemp(1) = Ir'*fz'./(pi*obj.bp^2*max(z_));
+            if dimensions, bulkTemp(1) = theta2T(obj, bulkTemp(1)); end
+            for ii = 2:length(obj.Fo)
+                ii_ = mod(ii-1, obj.ls) + 1;
+                t(ii) = obj.Fo2t(obj.Fo(ii), 1);            
+                % update domain according to mass accounting
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                z_ = obj.theta{ii_, 2};
+                r_ = obj.theta{ii_, 3};
+                theta_  = obj.theta{ii_, 1};  
+                fz = simpsonIntegrator(obj, z_);
+                fr = simpsonIntegrator(obj, r_);
+                Ir = 2*pi*(r_.*theta_)*fr';
+                bulkTemp(ii) = Ir'*fz'./(pi*obj.bp^2*max(z_));
+                if dimensions, bulkTemp(ii) = theta2T(obj, bulkTemp(ii)); end
+            end
+            f = figure('Units', 'normalized', ...
+                'Position', [0 0 0.4 0.3], 'Visible', 'on');
+            plot(t/3600, bulkTemp, '.-k');
+            title('Bulk Volumetric Temperature', ...
+                   'interpreter', 'latex', 'FontSize', 14);
+            if dimensions
+                ylabel('$T$ ($^\circ$C)', 'interpreter', 'latex', ...
+                    'FontSize', 14);
+                ylim([obj.theta2T(obj.thetaA), max(obj.T0(:))]);
+            else
+                ylabel('$\theta$ ($^\circ$C)', 'interpreter', 'latex', ...
+                    'FontSize', 14);
+                ylim([0, 1]);
+            end
+            xlabel('$t$ (h)', 'interpreter', 'latex', 'FontSize', 14);
+            set(gca, 'TickLabelInterpreter', 'latex')
+            set(gcf, 'Color', [1 1 1])
+        end
+        function [f, t, wallTemps] = plotWallTemp(obj, prototype)
             % plots the transient temperature of each wall layer
             % load data
             N = size(obj.wallInsulation, 1); % number of layers
@@ -4570,7 +5206,7 @@ classdef FF < handle
             for i = 1:N, r_(i) = obj.wallInsulation{i, 2}(2); end
             thetaW_ = NaN*ones(length(obj.Fo), N);
             t = NaN*ones(length(obj.Fo), 1);
-            for ii = 1:length(obj.Fo)                                      
+            for ii = 2:length(obj.Fo)                                      
                 ii_ = mod(ii-1, obj.ls) + 1;
                 if prototype
                     t(ii) = obj.Fo2t(obj.Fo(ii), 1);
@@ -4578,38 +5214,205 @@ classdef FF < handle
                     t(ii) = obj.Fo2t(obj.Fo(ii));
                 end
                 % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
                 if ii_ == 1 && ii ~= length(obj.Fo)
                     loadTheta(obj, ii+obj.ls-1);
                 end
                 thetaW_(ii, :) = obj.theta{ii_, 7};
             end
+            wallTemps = obj.theta2T(thetaW_);
             % plot transient temperature
-            figure('Units', 'normalized', 'color', 'white', ...
+            f = figure('Units', 'normalized', 'color', 'white', ...
                                           'Position', [0 0 0.5 0.4]);
             colormap(bone);
             labels = cell(N, 1);
             for i = 1:N
-                plot(t, obj.theta2T(thetaW_(:, i)), 'LineWidth', 1); hold on;
+                plot(t/3600, obj.theta2T(thetaW_(:, i)), 'LineWidth', 1); hold on;
                 labels{i} = strcat(num2str(r_(i)), ' m');
             end
             legend(labels, ...
                 'interpreter', 'latex', 'FontSize', 16, ...
                 'Location', 'northeast', 'NumColumns', 4)
             legend('boxoff')
-            xlabel('$t (s)$', 'interpreter', 'latex', 'FontSize', 16);
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
             ylabel('Wall Temperature ($^\circ$C)', ... 
                    'interpreter', 'latex', 'FontSize', 16);
             set(gca, 'box', 'off', 'TickDir', 'both', ...
                 'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
                 'TickLabelInterpreter', 'latex', 'FontSize', 14)
-            xlim([0, max(t)]);
+            xlim([0, max(t)/3600]);
         end
-        function plotOutletTempBulk(obj, dimensions)
+        function [f, t, wallFlux] = plotWallFlux(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.wallInsulation, 1); % number of layers
+            r_ = NaN*ones(N, 1);
+            for i = 1:N, r_(i) = obj.wallInsulation{i, 2}(2); end
+            thetaW_ = NaN*ones(length(obj.Fo), N);
+            wallFlux = NaN*ones(length(obj.Fo), N+1);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaW_(ii, :) = obj.theta{ii_, 7};
+                wallFlux(ii, 1) = obj.theta{ii_, 11};
+            end
+            wallTemps = obj.theta2T(thetaW_);
+            for n_ = 2:N+1
+                % compute fluxes according to RC circuit                
+                if n_ == N+1
+                    wallFlux(:, n_) = (wallTemps(:, n_-1) - obj.Tinf)./ ...
+                                              obj.Rwall{n_, 2};
+                else
+                    wallFlux(:, n_) = (wallTemps(:, n_-1) - wallTemps(:, n_))./ ...
+                                              obj.Rwall{n_, 2};
+                end
+            end
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, wallFlux(:, i), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(r_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Wall Flux ($W/m^2$)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end       
+        function [f, t, baseTemps] = plotBaseTemp(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.baseInsulation, 1); % number of layers
+            z_ = NaN*ones(N, 1);
+            for i = 1:N, z_(i) = obj.baseInsulation{i, 2}(2); end
+            thetaB_ = NaN*ones(length(obj.Fo), N);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaB_(ii, :) = obj.theta{ii_, 8};
+            end
+            baseTemps = obj.theta2T(thetaB_);
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, obj.theta2T(thetaB_(:, i)), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(z_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Base Temperature ($^\circ$C)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end
+        function [f, t, baseFlux] = plotBaseFlux(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.baseInsulation, 1); % number of layers
+            z_ = NaN*ones(N, 1);
+            for i = 1:N, z_(i) = obj.baseInsulation{i, 2}(2); end
+            thetaB_ = NaN*ones(length(obj.Fo), N);
+            baseFlux = NaN*ones(length(obj.Fo), N+1);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaB_(ii, :) = obj.theta{ii_, 8};
+                baseFlux(ii, 1) = obj.theta{ii_, 12};
+            end
+            baseTemps = obj.theta2T(thetaB_);
+            for n_ = 2:N+1
+                % compute fluxes according to RC circuit                
+                if n_ == N+1
+                    baseFlux(:, n_) = (baseTemps(:, n_-1) - obj.Tinf)./ ...
+                                              obj.Rbase{n_, 2};
+                else
+                    baseFlux(:, n_) = (baseTemps(:, n_-1) - baseTemps(:, n_))./ ...
+                                              obj.Rbase{n_, 2};
+                end
+            end
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, baseFlux(:, i), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(z_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Base Flux ($W/m^2$)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end
+        function f = plotOutletTempBulk(obj, dimensions)
             % plot outlet temperature
-            figure('Units', 'normalized', ...
-                'Position', [0 0 0.4 0.3], 'Visible', 'on');            
+            f = figure('Units', 'normalized', ...
+                'Position', [0 0 0.4 0.3], 'Visible', 'on');
+            computeThetaO(obj);
             if dimensions
-                plot(obj.Fo2t(obj.thetaOB(:, 1)), ...
+                plot(obj.thetaOB(:, 1)/3600, ...
                     obj.theta2T(obj.thetaOB(:, 2)), '.-k');
                 title('Outlet Bulk Temperature: $\frac{2}{a^2}\int_0^aT_c\overline{r}d\overline{r}$', ...
                        'interpreter', 'latex', 'FontSize', 14);
@@ -4618,7 +5421,7 @@ classdef FF < handle
                 ylim([obj.theta2T(obj.thetaA), max(obj.T0(:))]);
                 hold on
             else
-                plot(obj.Fo2t(obj.thetaOB(:, 1)), obj.thetaOB(:, 2), '.-k');
+                plot(obj.thetaOB(:, 1)/3600, obj.thetaOB(:, 2), '.-k');
                 title('Outlet Bulk Temperature: $\frac{2}{a^2}\int_0^a\theta_c\overline{r}d\overline{r}$', ...
                    'interpreter', 'latex', 'FontSize', 14);           
                 ylabel('$\theta_o$', 'interpreter', 'latex', ...
@@ -4626,28 +5429,106 @@ classdef FF < handle
                 ylim([obj.thetaA, max(obj.T2theta(obj.T0(:)))]);
                 hold on
             end
-            xlabel('$t$ (s)', 'interpreter', 'latex', 'FontSize', 14);
+            xlabel('$t$ (h)', 'interpreter', 'latex', 'FontSize', 14);
             set(gca, 'TickLabelInterpreter', 'latex')
             set(gcf, 'Color', [1 1 1])
-            if ~isempty(obj.thetaOBExp)
-                if dimensions
-                    plot(obj.Fo2t(obj.thetaOBExp(:, 1)), ...
-                        obj.theta2T(obj.thetaOBExp(:, 2)), '-r');                    
-                else
-                    plot(obj.Fo2t(obj.thetaOBExp(:, 1)), ...
-                        obj.thetaOBExp(:, 2), '-r');
-                end
-                legend('MATLAB Sim', 'Experiment', ...
-                    'interpreter', 'latex', 'FontSize', 14);
-            end
+            xlim([0, obj.thetaOB(end, 1)/3600]);
         end
-        function plotOutletTempCL(obj, dimensions)
+        function [f, qw, qb, qt, qTot, energyIn, energyLoss, percentLoss] = plotBinLosses(obj, qwInc, qbInc, qtInc, qTotInc)
+            % plots heat loss at discrete points in the composite wall
+            % initialize domain ,temperature, and velocity distributions
+            computeThetaO(obj);
+            mtot = obj.QChp*obj.rhopPack*6*3600;
+            qAve = -mtot*obj.cpp*(obj.theta2T(obj.thetaOB(end)) - 800)/(24*3600*1000);
+            qTot = zeros(length(obj.Fo)-1, 1);
+            qw = zeros(length(obj.Fo)-1, 1);
+            qb = zeros(length(obj.Fo)-1, 1);
+            qt = zeros(length(obj.Fo)-1, 1);
+            t = zeros(length(obj.Fo)-1, 1);
+            energyLoss = zeros(length(obj.Fo)-1, 1);
+            energyIn = zeros(length(obj.Fo)-1, 1);
+            percentLoss = zeros(length(obj.Fo)-1, 1);
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            for i = 2:length(obj.Fo)                                      
+                i_ = mod(i-1, obj.ls) + 1;
+                if i_ == 1 && i ~= length(obj.Fo)
+                    loadTheta(obj, i+obj.ls-1);
+                end
+                t(i-1) = obj.Fo2t(obj.Fo(i), 1);
+                if qwInc, qw(i-1) = obj.theta{i_, 11}; 
+                else, qw(i-1) = NaN; end
+                if qbInc, qb(i-1) = obj.theta{i_, 12};
+                else, qb(i-1) = NaN; end
+                if qtInc, qt(i-1) = obj.theta{i_, 13};
+                else, qt = NaN; end
+                if qTotInc, qTot(i-1) = obj.theta{i_, 14}; 
+                else, qTot = NaN; end
+                if i == 2
+                    energyLoss(i-1) = 0;
+                elseif i == 3
+                    energyLoss(i-1) = trapz(t(1:i-1), qTot(1:i-1));
+                else
+                    ft = simpsonIntegrator(obj, t(1:i-1));
+                    energyLoss(i-1) = ft*qTot(1:i-1);
+                end
+                if i == 2
+                    energyIn(i-1) = obj.theta{i_, 15};
+                else
+                    energyIn(i-1) = energyIn(i-2) + obj.theta{i_, 15};
+                end
+                percentLoss(i-1) = 100*energyLoss(i-1)/energyIn(i-1);
+            end
+%             ft = simpsonIntegrator(obj, t);
+%             energyLossTot = ft*qTot;           
+%             energyInTot = mtot*obj.cpp*(obj.T0 - obj.Tinf)/1000;
+%             percentLossTot = 100*energyLossTot/energyInTot;
+            % plot total heat loss at each time step
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                     'Position', [0 0 0.5 0.3]); hold on;
+            hold on;
+            labels = cell(1, 4);
+            if qTotInc 
+                plot(t/3600, qTot, '-k'); 
+                labels{1, 1} = 'Total Heat Loss'; 
+            else
+                labels{1, 1} = []; 
+            end
+            if qwInc 
+                plot(t/3600, qw, '--b');
+                labels{1, 2} = 'Wall Heat Loss'; 
+            else
+                labels{1, 2} = []; 
+            end
+            if qbInc
+                plot(t/3600, qb, '--r'); 
+                labels{1, 3} = 'Base Heat Loss'; 
+            else
+                labels{1, 3} = []; 
+            end
+            if qtInc
+                plot(t/3600, qt, '--m'); 
+                labels{1, 4} = 'Top Surface Heat Loss'; 
+            else
+                labels{1, 4} = []; 
+            end 
+%             plot(t/3600, qAve*ones(length(t), 1), '-r');
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$Q$ (kW)', 'interpreter', 'latex', ...
+                                                      'FontSize', 14);
+            legend(labels, 'interpreter', 'latex', 'FontSize', 14);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 12);            
+        end
+        function f = plotOutletTempCL(obj, dimensions)
             % plot outlet temperature
-            figure('Units', 'normalized', ...
-                'Position', [0 0 0.4 0.3], 'Visible', 'on');            
+            f = figure('Units', 'normalized', ...
+                'Position', [0 0 0.4 0.3], 'Visible', 'on');  
+            computeThetaO(obj);
             if dimensions
-                plot(obj.Fo2t(obj.thetaO(:, 1)), ...
-                    obj.theta2T(obj.thetaO(:, 2)), '-k');
+                plot(obj.thetaO(:, 1)/3600, ...
+                    obj.theta2T(obj.thetaO(:, 2)), '.-k');
                 title('Outlet Centerline Temperature', ...
                        'interpreter', 'latex', 'FontSize', 14);
                 ylabel('$T_o$ ($^\circ$C)', 'interpreter', 'latex', ...
@@ -4655,7 +5536,7 @@ classdef FF < handle
                 ylim([obj.theta2T(obj.thetaA), max(obj.T0(:))]);
                 hold on
             else
-                plot(obj.Fo2t(obj.thetaO(:, 1)), obj.thetaO(:, 2), '-k');
+                plot(obj.thetaO(:, 1)/3600, obj.thetaO(:, 2), '.-k');
                 title('Outlet Centerline Temperature', ...
                    'interpreter', 'latex', 'FontSize', 14);           
                 ylabel('$\theta_o$', 'interpreter', 'latex', ...
@@ -4663,20 +5544,10 @@ classdef FF < handle
                 ylim([obj.thetaA, max(obj.T2theta(obj.T0(:)))]);
                 hold on
             end
-            xlabel('$t$ (s)', 'interpreter', 'latex', 'FontSize', 14);
+            xlabel('$t$ (h)', 'interpreter', 'latex', 'FontSize', 14);
             set(gca, 'TickLabelInterpreter', 'latex')
             set(gcf, 'Color', [1 1 1])
-            if ~isempty(obj.thetaOExp)
-                if dimensions
-                    plot(obj.Fo2t(obj.thetaOExp(:, 1)), ...
-                        obj.theta2T(obj.thetaOExp(:, 2)), '-r');                    
-                else
-                    plot(obj.Fo2t(obj.thetaOExp(:, 1)), ...
-                        obj.thetaOExp(:, 2), '-r');
-                end
-                legend('MATLAB Sim', 'Experiment', ...
-                    'interpreter', 'latex', 'FontSize', 14);
-            end
+            xlim([0, obj.thetaO(end, 1)/3600]);
         end
         function plotQWall(obj)
             % plots heat loss at discrete points in the composite wall
@@ -4813,6 +5684,29 @@ classdef FF < handle
                 fzri.Visible = 'on';
             end
         end
+        function [fzri, pzri1] = plotZRTempNoWall(obj, temp, z, r, ShowPlot)
+            % plots ZR plane for one time instance
+            [R, Z] = meshgrid(r, z); 
+            % plot contour
+            fzri = figure('Units', 'normalized', ...
+                'Position', [0 0 obj.b 1], 'Visible', 'off');
+            pzri1 = surf(R, Z, temp, 'EdgeColor', 'interp', ...
+                 'FaceColor', 'interp');
+            xlim([0, max(R(:))])
+            ylim([min(Z(:)), max(Z(:))])
+            pbaspect([obj.b, 1, 1]);  % figure sized proportional to aspect ratio
+            view(0, 90);
+            caxis([obj.T2theta(obj.Tinf), 1]);
+            colormap(jet);
+            cb = colorbar;
+            cb.Ruler.MinorTick = 'on';
+            set(pzri1, 'linestyle', 'none');
+            xlabel('$r/H$', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$z/H$', 'interpreter', 'latex', 'FontSize', 14);
+            if nargin > 2 && ShowPlot
+                fzri.Visible = 'on';
+            end
+        end
         function [fzri, pzri] = plotZRCenterSensitivity(obj, s, z, r, ...
                                   ShowPlot)
             % plots ZR plane for one time instance
@@ -4888,18 +5782,14 @@ classdef FF < handle
                 fzri.Visible = 'on';
             end
         end  
-        function captureDimensionalTemp(obj, k)
+        function captureDimensionalTemp(obj, k_)
             % plots the dimensional temperature profile over the entire
             % domain at the indicated time step, k
-            temp = obj.theta2T(obj.thetak(k));
-            t = obj.Fo2t(obj.Fo(k));
-            z_ = [obj.zbar, (obj.zbar(end) + obj.zhat(2:end))];
-            z0_ = [obj.zbar0, (1 + obj.zhat(2:end))];                        
-            [~, na] = min(abs(z_(end) - z0_));
-            [R, Z] = meshgrid([obj.rhat(1:end-1), obj.rbar], ...
-                [z_, (obj.h + z0_(na:end))]); 
-            R = R(1:length(z0_), :);
-            Z = Z(1:length(z0_), :);
+            temp = obj.theta2T(obj.thetak(k_));
+            z_ = obj.theta{k_, 2};
+            r_ = obj.theta{k_, 3};
+            t = obj.Fo2t(obj.Fo(k_), 1);
+            [R, Z] = meshgrid(r_, z_); 
             % plot contour
             fzri = figure('Units', 'normalized', ...
                 'Position', [0 0 obj.b 1], 'Visible', 'off');
@@ -4909,15 +5799,15 @@ classdef FF < handle
             ylim([min(Z(:)), max(Z(:))])
             pbaspect([obj.b, 1, 1]);  % figure sized proportional to aspect ratio
             view(0, 90);
-            caxis([obj.Tinf, max(obj.T0(:))]);
+            caxis([700, 800]);
             colormap(jet);
             cb = colorbar;
             cb.Ruler.MinorTick = 'on';
             set(pzri, 'linestyle', 'none');
             ylabel(cb, '$T$ ($^\circ$C)', 'interpreter', 'latex', 'FontSize', 14);
-            xlabel('$\overline{r}$', 'interpreter', 'latex', 'FontSize', 14);
-            ylabel('$\overline{z}$', 'interpreter', 'latex', 'FontSize', 14);
-            title(sprintf('$t$ = %1.0f s', t), 'interpreter', 'latex', ...
+            xlabel('$r/H$', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$z/H$', 'interpreter', 'latex', 'FontSize', 14);
+            title(sprintf('$t$ = %1.0f h', t/3600), 'interpreter', 'latex', ...
                 'FontSize', 14);
             set(gca, 'TickLabelInterpreter', 'latex')
             set(gcf, 'Color', [1 1 1])
@@ -4925,7 +5815,7 @@ classdef FF < handle
                 fzri.Visible = 'on';
             end      
             % save figure
-            saveas(pzri, sprintf('tempDegC_%1.0d.png', k));
+            saveas(pzri, sprintf('tempDegC_%1.0d.png', k_));
         end
         function [fzri, pzri] = plotZRVel(obj, vel, ShowPlot)
             % plots ZR plane for one time instance 
@@ -5123,11 +6013,9 @@ classdef FF < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % other
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
-        function x = thetak(obj, k_)
+        function theta_ = thetak(obj, k_)
             % returns theta matrix at time step k_
-            ns = length(obj.zhat) - 1; nl = length(obj.zbar0); n = ns + nl;
-            ms = length(obj.rhat) - 1; ml = length(obj.rbar); m = ms + ml;
-            x = obj.theta(n*(k_-1)+1:n*k_, m*(k_-1)+1:m*k_);
+            theta_ = full(obj.theta{k_, 1});
         end       
         function saveTheta(obj, k_)
             % saves theta matrix at time step k_
@@ -5183,6 +6071,26 @@ classdef FF < handle
         function tb = bulkTempZ(~, t)
             % computes the bulk temperature for an r-dimensional array
             tb = mean(t, 1);
+        end
+        function [qw, qb, qt, qTot] = computeBinHeatLoss(obj, thetaWall, ...
+                                         drw, zw, thetaBase, dzb, rb, ...
+                                         thetaTop, dzt, rt)
+            % computes the heat loss rate at the base, wall, and top
+            % surface at a particular time step with Fourier's Law
+            qw = -obj.kp*(obj.T0 - obj.Tinf)*(thetaWall(:, 2) ...
+                - thetaWall(:, 1))./drw;
+            qb = obj.kp*(obj.T0 - obj.Tinf)*(thetaBase(2, :) ...
+                - thetaBase(1, :))./dzb;
+            qt = -obj.kp*(obj.T0 - obj.Tinf)*(thetaTop(2, :) ...
+                - thetaTop(1, :))./dzt;
+            % integrate to get total heat loss at each surface
+            fzw = simpsonIntegrator(obj, zw);
+            frb = simpsonIntegrator(obj, rb);
+            frt = simpsonIntegrator(obj, rt);
+            qw = (2*pi*obj.bp*obj.Hp^2*fzw*qw)/1000;       % kW
+            qb = (2*pi*obj.Hp^2*frb*(qb.*rb)')/1000;       % kW
+            qt = (2*pi*obj.Hp^2*frt*(qt.*rt)')/1000;       % kW
+            qTot = abs(qw) + abs(qb) + abs(qt);                                                         
         end
         function c = variableC(~, t)
             % computes the temperature-dependent specific heat for every
