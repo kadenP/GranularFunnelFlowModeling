@@ -211,12 +211,12 @@ FF_test.wallInsulation{4, 5} = 500;            % J/kgK
 % set insulation specifications for bin base
 % new insulation configuration
 FF_test.baseInsulation{1, 1} = 'particles';
-FF_test.baseInsulation{1, 2} = [0, 0.05];
+FF_test.baseInsulation{1, 2} = [0, 0.1];
 FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
 FF_test.baseInsulation{2, 1} = 'fondag';
-FF_test.baseInsulation{2, 2} = [0, 0.1905];
+FF_test.baseInsulation{2, 2} = [0.1, 0.1 + 0.1905];
 FF_test.baseInsulation{2, 3} = 1.75;          % W/mK
 FF_test.baseInsulation{2, 4} = 2210;          % kg/m3
 FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK

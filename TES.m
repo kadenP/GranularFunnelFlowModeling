@@ -1,4 +1,4 @@
-classdef TES < matlab.System
+classdef TES < matlab.System & matlab.system.mixin.CustomIcon
     % This MATLAB system block can be used to dynamically model the hot and cold thermal storage bins as a function of the particle inlet temperature and the mass flow rate into or out of the bin. It outputs the corresponding particle outlet temperature at each time step.
     %
     % NOTE: When renaming the class name Untitled, the file name
@@ -13,19 +13,19 @@ classdef TES < matlab.System
         
         Hp = 7                      % (m) height of prototype bin
         bp = 0.3214                 % inner nondimensional radius of prototype bin
-        a = 0.01                    % inner nondimensional radius at top of center channel
-        a0 = 0.01                   % inner nondimensional radius at outlet
-        h = 0.025                   % nondimensional height of top flow boundary        
+        a = 0.044                    % inner nondimensional radius at top of center channel
+        a0 = 0.044                   % inner nondimensional radius at outlet
+        h = 0.0011                   % nondimensional height of top flow boundary        
         b = 0.3214                  % inner nondimensional radius
         H_ = 0.05                   % (m) bin height used for numerical computation
         
-        thetaA = 0                  % ambient temperature inside
+        thetaA = 0.75                  % ambient temperature inside
         T0 = 800                    % (°C) initial temperature of particles in bin
         Tinf = 20                   % (°C) ambient temperature
         Tref = 0                    % (°C) reference temperature 
-        hInf = 50                   % (W/m2K) heat transfer coefficient to surroundings
-        hcw = 1                     % (W/m2K) wall-particle boundary contact coefficient
-        hcwA = 1                    % (W/m2K) wall-tank air convection coefficient        
+        hInf = 10                   % (W/m2K) heat transfer coefficient to surroundings
+        hcw = 10                     % (W/m2K) wall-particle boundary contact coefficient
+        hcwA = 10                    % (W/m2K) wall-tank air convection coefficient        
         tauW1 = 1.7057e-04          % nondimensional time constant for wall boundary ramp function
         hp1 = 5                     % (W/m2K) top flow surface h
         hp2 = 10                    % (W/m2K) bottom overall convection coefficient for prototype bin
@@ -123,16 +123,16 @@ classdef TES < matlab.System
         z = []                  % z-coordinates for whole domain
         r = []                  % r-coordinates for whole domain
         zmc = []                % z-mesh for mass flow cone
-        dr = 0.005                  % radial mesh size for full domain computations
-        dz = 0.005                  % z-mesh size for full domain computations
+        dr = 0.01                  % radial mesh size for full domain computations
+        dz = 0.01                  % z-mesh size for full domain computations
         drH = 0.001                 % nondimensional radius mesh for 'H'  
-        drtop = 0.05                % nondimensional radius top boundary mesh size
-        drbar = 0.001               % nondimensional radius large mesh size
-        drhat = 0.01                % nondimensional radius small mesh size
+        drtop = 0.005                % nondimensional radius top boundary mesh size
+        drbar = 0.00005               % nondimensional radius large mesh size
+        drhat = 0.002                % nondimensional radius small mesh size
         dzH = 0.001                 % nondimensional height mesh for 'H'
-        dzc = 0.05                  % nondimensional height center channel mesh size
-        dzbar = 0.001               % nondimensional height large mesh size         
-        dzhat = 0.01                % nondimensional height small mesh size
+        dzc = 0.005                  % nondimensional height center channel mesh size
+        dzbar = 0.0001               % nondimensional height large mesh size         
+        dzhat = 0.0001                % nondimensional height small mesh size
         Fo = []                 % non-dimensional time (Fourier number) vector
         FoEnd = 0               % nondimensional end time
         FoNow = 0              % current iteration non-dimensional time
@@ -424,21 +424,25 @@ classdef TES < matlab.System
     
     methods(Static, Access = protected)
        %% system block input/output customization
-       function icon = getIconImpl(~)
-          icon = sprintf('Particle\nTES\nBin'); 
-       end
-       function [in1name, in2name, in3name] = getInputNamesImpl(~)
+%        function icon = getIconImpl(~)
+%           icon = sprintf('Particle\nTES\nBin'); 
+%        end
+        function icon = getIconImpl(~)
+            % Define icon for System block
+            icon = matlab.system.display.Icon('png-transparent-simulink-matlab-mathworks-computer-software-logo-coder-miscellaneous-angle-rectangle.png');
+        end
+        function [in1name, in2name, in3name] = getInputNamesImpl(~)
           in1name = 'Tin';
           in2name = 'mdot';
           in3name = 't';
-       end
-       function [out1name, out2name, out3name, out4name] = getOutputNamesImpl(~)
+        end
+        function [out1name, out2name, out3name, out4name] = getOutputNamesImpl(~)
           out1name = 'Tout';
           out2name = 'Tbulk';
           out3name = 'Estored';
           out4name = 'ztop';
-       end    
-       function groups = getPropertyGroupsImpl
+        end    
+        function groups = getPropertyGroupsImpl
           group1 = matlab.system.display.SectionGroup( ...
               'Title', 'Mesh Parameters', ...
               'PropertyList', {});          
@@ -467,20 +471,20 @@ classdef TES < matlab.System
             obj.df = t2Fo(obj, obj.dt);
 %             initializeWallSys(obj);
             obj.ztop = 0.05;
-            obj.rtop = linspace(obj.a, obj.b, obj.nrhat);
+            obj.rtop = obj.a:obj.drtop:obj.b;
             [obj.rbar, obj.drbar] = ... 
                         nodeGen(obj, [obj.a0, obj.b], obj.nrbar);
             [obj.rbarH, obj.drH] = ... 
                         nodeGen(obj, [0, obj.b], obj.nrH);
-            obj.rhat = linspace(1e-6, obj.a0, obj.nrhat);
+            obj.rhat = 1e-6:obj.drhat:obj.a0;
             obj.r = [obj.rhat, obj.rbar(2:end)];
             obj.zbar0 = nodeGen(obj, [0, obj.ztop], obj.nzbar);
             [obj.zbar, obj.dzbar] = ... 
                         nodeGen(obj, [0, obj.ztop], obj.nzbar);
             [obj.zbarH, obj.dzH] = ... 
                         nodeGen(obj, [0, obj.ztop], obj.nzH);
-            obj.zcenter = linspace(0, obj.ztop, obj.nzc); %0:obj.dzc:obj.ztop;
-            obj.zhat = linspace(0, obj.h, obj.nzhat); %0:obj.dzhat:obj.h;
+            obj.zcenter = 0:obj.dzc:obj.ztop;
+            obj.zhat = 0:obj.dzhat:obj.h;
             obj.z = [obj.zbar0, 1+obj.zhat(2:end)];
             obj.zIC = NaN*ones(1, obj.nzIC);
             obj.rIC = NaN*ones(1, obj.nrIC);
@@ -541,18 +545,18 @@ classdef TES < matlab.System
             % Initialize / reset discrete-state properties
             % recomputes static variables. needs to be run if any of the
             % system properties are changed externally.
-            obj.rtop = linspace(obj.a, obj.b, obj.nrhat);
+            obj.rtop = obj.a:obj.drtop:obj.b;
             [obj.rbar, obj.drbar] = ... 
                         nodeGen(obj, [obj.a0, obj.b], obj.nrbar);
             [obj.rbarH, obj.drH] = ... 
                         nodeGen(obj, [0, obj.b], obj.nrH);
-            obj.rhat = linspace(1e-6, obj.a0, obj.nrhat); 
+            obj.rhat = 1e-6:obj.drhat:obj.a0; 
             obj.r = [obj.rhat, obj.rbar(2:end)];
             obj.zbar0 = nodeGen(obj, [0, 1], obj.nzbar);
             [obj.zbar, obj.dzbar] = ... 
                         nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            obj.zcenter = linspace(0, obj.ztop, obj.nzc);
-            obj.zhat = linspace(0, obj.h, obj.nzhat); 
+            obj.zcenter = 0:obj.dzc:obj.ztop;
+            obj.zhat = 0:obj.dzhat:obj.h; 
             [obj.zbarH, obj.dzH] = ... 
                         nodeGen(obj, [0, obj.ztop], obj.nzH);
             obj.z = [obj.zbar0, 1+obj.zhat(2:end)];
@@ -802,7 +806,7 @@ classdef TES < matlab.System
 
             % Set private and protected properties
             %s.myproperty = obj.myproperty;
-        end
+        end        
         function loadObjectImpl(obj,s,wasLocked)
             % Set properties in object obj to values in structure s
 
@@ -866,12 +870,12 @@ classdef TES < matlab.System
             % new insulation configuration
             obj.baseInsulation = cell(2, 5);
             obj.baseInsulation{1, 1} = 'particles';
-            obj.baseInsulation{1, 2} = [0, 0.05];
+            obj.baseInsulation{1, 2} = [0, 0.1];
             obj.baseInsulation{1, 3} = 0.4;          % W/mK
             obj.baseInsulation{1, 4} = 2000;          % kg/m3
             obj.baseInsulation{1, 5} = 1025.965;        % J/kgK
             obj.baseInsulation{2, 1} = 'fondag';
-            obj.baseInsulation{2, 2} = [0.05, 0.05+0.1905];
+            obj.baseInsulation{2, 2} = [0.1, 0.1+0.1905];
             obj.baseInsulation{2, 3} = 1.75;          % W/mK
             obj.baseInsulation{2, 4} = 2210;          % kg/m3
             obj.baseInsulation{2, 5} = 1046.7;        % J/kgK
@@ -1597,7 +1601,7 @@ classdef TES < matlab.System
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function thetaC_ = iterateThetaC(obj, thetaS_, z_, centerIC, zcenter_, rhat_)
             % iterates the temperature for discretized energy equation
-            n = length(obj.zcenter); m = length(rhat_); nm = n*m; 
+            n = length(zcenter_); m = length(rhat_); nm = n*m; 
             obj.dzc = zcenter_(2) - zcenter_(1);
             obj.drhat = rhat_(2) - rhat_(1);
             % compute velocity distribution if not populated already
@@ -1830,8 +1834,13 @@ classdef TES < matlab.System
                         [0, 1, -1], N, N)';
             obj.Bwall = zeros(N, 1); obj.Bwall(1) = obj.tauWall(1, 1);
             obj.Cwall = [zeros(1, N); eye(N)];  
-            obj.Cwall(1) = -(obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.b*obj.Hp^2);
-            obj.Dwall = zeros(N+1, 1);
+            for i = 1:N
+                obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                if i ~= 1
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                end
+            end
+            obj.Dwall = zeros(2*N, 1);
             obj.Dwall(1) = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.b*obj.Hp^2);
             % initialize state variables and boundary condition   
             if isempty(obj.thetaWall), obj.thetaWall = zeros(N, 1); end
@@ -1856,7 +1865,7 @@ classdef TES < matlab.System
                 *[obj.thetaBase; b_];
             y = y_(1:N);
             obj.thetaBase = y;
-            obj.qLossB = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.b*obj.H_)^2)*(u - y(1));
+            obj.qLossB = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.b*obj.Hp)^2)*(u - y(1));
             obj.g2 = obj.qLossB*obj.H_/(obj.k*(obj.T0 - obj.Tinf));           
         end
         function y = computeWallSys(obj, u, Fo_)
@@ -1870,7 +1879,7 @@ classdef TES < matlab.System
                 *[obj.thetaWall; b_];
             y = y_(1:N);
             obj.thetaWall = y;
-            obj.qLossW = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.b*obj.H_^2)*(u - y(1));
+            obj.qLossW = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.b*obj.Hp^2)*(u - y(1));
             obj.g4 = obj.qLossW*obj.H_/(obj.k*(obj.T0 - obj.Tinf));
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
