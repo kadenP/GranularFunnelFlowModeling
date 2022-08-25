@@ -870,12 +870,12 @@ classdef TES < matlab.System & matlab.system.mixin.CustomIcon
             % new insulation configuration
             obj.baseInsulation = cell(2, 5);
             obj.baseInsulation{1, 1} = 'particles';
-            obj.baseInsulation{1, 2} = [0, 0.1];
+            obj.baseInsulation{1, 2} = [0, 0.01];
             obj.baseInsulation{1, 3} = 0.4;          % W/mK
             obj.baseInsulation{1, 4} = 2000;          % kg/m3
             obj.baseInsulation{1, 5} = 1025.965;        % J/kgK
             obj.baseInsulation{2, 1} = 'fondag';
-            obj.baseInsulation{2, 2} = [0.1, 0.1+0.1905];
+            obj.baseInsulation{2, 2} = [0.01, 0.01+0.1905];
             obj.baseInsulation{2, 3} = 1.75;          % W/mK
             obj.baseInsulation{2, 4} = 2210;          % kg/m3
             obj.baseInsulation{2, 5} = 1046.7;        % J/kgK
@@ -1340,7 +1340,7 @@ classdef TES < matlab.System & matlab.system.mixin.CustomIcon
                 RD_ = Xm(obj, r_, eta_(i));
                 RC3_ = Xm(obj, obj.a0, eta_(i));
                 Z = Xn(obj, z_, beta_(i))';
-                C1 = Xn(obj, z_, beta_(i)) ...
+                C1 = Xn(obj, z_(end), beta_(i)) ...
                     /(Nn(obj, beta_(i))*Nm(obj, eta_(i)));
                 C3 = obj.a0*RC3_ ...
                     /(Nn(obj, beta_(i))*Nm(obj, eta_(i)));
@@ -1866,7 +1866,7 @@ classdef TES < matlab.System & matlab.system.mixin.CustomIcon
             y = y_(1:N);
             obj.thetaBase = y;
             obj.qLossB = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.b*obj.Hp)^2)*(u - y(1));
-            obj.g2 = obj.qLossB*obj.H_/(obj.k*(obj.T0 - obj.Tinf));           
+            obj.g2 = -obj.qLossB*obj.H_/(obj.k*(obj.T0 - obj.Tinf));           
         end
         function y = computeWallSys(obj, u, Fo_)
             % computes the heat flux leaving the wall
