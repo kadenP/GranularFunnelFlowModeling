@@ -19,7 +19,7 @@ FF_test.QChp = Qcharge/FF_test.rhopPack;
 % set simulation parameters
 FF_test.Tinf = 21;
 FF_test.T0 = 800;
-FF_test.thetaA = 0.75;
+FF_test.thetaA = 0.0;
 FF_test.H = 0.1;
 FF_test.h = 0.0011;
 FF_test.a0 = 0.044;
@@ -120,93 +120,6 @@ FF_test.wallInsulation{4, 3} = 30;             % W/mK
 FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
 FF_test.wallInsulation{4, 5} = 500;            % J/kgK
 
-% new insulation configuration (added thickness)
-% FF_test.nzbarW = 1000;
-% FF_test.wallInsulation{1, 1} = 'tufcrete 47';
-% FF_test.nrbarW{1} = 100;
-% FF_test.wallInsulation{1, 2} = [1.75+2.25, 1.75+2.35 + 0.1];
-% FF_test.wallInsulation{1, 3} = 1.53;        % W/mK -> 1.53
-% FF_test.wallInsulation{1, 4} = 2210;        % kg/m3
-% FF_test.wallInsulation{1, 5} = 1175;        % J/kgK
-% FF_test.wallInsulation{2, 1} = 'skamolex';
-% FF_test.nrbarW{2} = 40;
-% FF_test.wallInsulation{2, 2} = [1.75+2.35 + 0.1, 1.75+2.55+0.3];
-% FF_test.wallInsulation{2, 3} = 0.09;       % W/mK
-% FF_test.wallInsulation{2, 4} = 245;        % kg/m3
-% FF_test.wallInsulation{2, 5} = 840;        % J/kgK
-% FF_test.wallInsulation{3, 1} = 'elmtherm';
-% FF_test.nrbarW{3} = 20;
-% FF_test.wallInsulation{3, 2} = [1.75+2.55+0.3, 1.75+2.6+0.35];
-% FF_test.wallInsulation{3, 3} = 0.025;       % W/mK
-% FF_test.wallInsulation{3, 4} = 270;         % kg/m3
-% FF_test.wallInsulation{3, 5} = 1005;        % J/kgK
-% FF_test.wallInsulation{4, 1} = 'ss304';
-% FF_test.nrbarW{4} = 10;
-% FF_test.wallInsulation{4, 2} = [1.75+2.6+0.35, 1.75+2.60635+0.35];
-% FF_test.wallInsulation{4, 3} = 30;          % W/mK
-% FF_test.wallInsulation{4, 4} = 7700;        % kg/m3
-% FF_test.wallInsulation{4, 5} = 500;         % J/kgK
-
-% FF_test.nzbarW = 1000;
-% FF_test.wallInsulation{1, 1} = 'tufcrete 47';
-% FF_test.nrbarW{1} = 100;
-% FF_test.wallInsulation{1, 2} = [2.25, 2.45];
-% FF_test.wallInsulation{1, 3} = 1.53;        % W/mK -> 1.53
-% FF_test.wallInsulation{1, 4} = 2210;        % kg/m3
-% FF_test.wallInsulation{1, 5} = 1175;        % J/kgK
-% FF_test.wallInsulation{2, 1} = 'skamolex';
-% FF_test.nrbarW{2} = 40;
-% FF_test.wallInsulation{2, 2} = [2.45, 2.65+0.2];
-% FF_test.wallInsulation{2, 3} = 0.09;       % W/mK
-% FF_test.wallInsulation{2, 4} = 245;        % kg/m3
-% FF_test.wallInsulation{2, 5} = 840;        % J/kgK
-% FF_test.wallInsulation{3, 1} = 'elmtherm';
-% FF_test.nrbarW{3} = 20;
-% FF_test.wallInsulation{3, 2} = [2.65+0.2, 2.7+0.2];
-% FF_test.wallInsulation{3, 3} = 0.025;       % W/mK
-% FF_test.wallInsulation{3, 4} = 270;         % kg/m3
-% FF_test.wallInsulation{3, 5} = 1005;        % J/kgK
-% FF_test.wallInsulation{4, 1} = 'ss304';
-% FF_test.nrbarW{4} = 10;
-% FF_test.wallInsulation{4, 2} = [2.7+0.2, 2.70635+0.2];
-% FF_test.wallInsulation{4, 3} = 30;          % W/mK
-% FF_test.wallInsulation{4, 4} = 7700;        % kg/m3
-% FF_test.wallInsulation{4, 5} = 500;         % J/kgK
-
-% Kevin's grid
-% FF_test.nzbarW = 800;
-% FF_test.wallInsulation{1, 1} = 'pump 60';
-% FF_test.nrbarW{1} = 100;
-% FF_test.wallInsulation{1, 2} = [2.25, 2.35];
-% FF_test.wallInsulation{1, 3} = 0.216;        % W/mK
-% FF_test.wallInsulation{1, 4} = 910;         % kg/m3
-% FF_test.wallInsulation{1, 5} = 1052;        % J/kgK
-% FF_test.wallInsulation{1, 1} = 'pump 40';
-% FF_test.nrbarW{2} = 100;
-% FF_test.wallInsulation{2, 2} = [2.35, 2.53];
-% FF_test.wallInsulation{2, 3} = 0.32;        % W/mK
-% FF_test.wallInsulation{2, 4} = 710;         % kg/m3
-% FF_test.wallInsulation{2, 5} = 1046;        % J/kgK
-% FF_test.wallInsulation{3, 1} = 'skamolex';
-% FF_test.nrbarW{3} = 100;
-% FF_test.wallInsulation{3, 2} = [2.53, 2.71];
-% FF_test.wallInsulation{3, 3} = 0.09;       % W/mK
-% FF_test.wallInsulation{3, 4} = 245;        % kg/m3
-% FF_test.wallInsulation{3, 5} = 840;        % J/kgK
-% FF_test.wallInsulation{4, 1} = 'elmtherm';
-% FF_test.nrbarW{4} = 100;
-% FF_test.wallInsulation{4, 2} = [2.71, 2.735];
-% FF_test.wallInsulation{4, 3} = 0.025;       % W/mK
-% FF_test.wallInsulation{4, 4} = 270;         % kg/m3
-% FF_test.wallInsulation{4, 5} = 1005;        % J/kgK
-% FF_test.wallInsulation{5, 1} = 'ss304';
-% FF_test.nrbarW{5} = 50;
-% FF_test.wallInsulation{5, 2} = [2.735, 2.74135];
-% FF_test.wallInsulation{5, 3} = 30;          % W/mK
-% FF_test.wallInsulation{5, 4} = 7700;        % kg/m3
-% FF_test.wallInsulation{5, 5} = 500;         % J/kgK
-
-% FF_test.buildWall;
 
 % set insulation specifications for bin base
 % new insulation configuration
@@ -216,7 +129,7 @@ FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
 FF_test.baseInsulation{2, 1} = 'fondag';
-FF_test.baseInsulation{2, 2} = [0.1, 0.1 + 0.1905];
+FF_test.baseInsulation{2, 2} = [0.1, 0.1+0.1905];
 FF_test.baseInsulation{2, 3} = 1.75;          % W/mK
 FF_test.baseInsulation{2, 4} = 2210;          % kg/m3
 FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK
@@ -228,16 +141,23 @@ FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK
 
 % set insulation specifications for bin top
 % new insulation configuration
-% FF_test.topInsulation{1, 1} = 'fondag';
-% FF_test.topInsulation{1, 2} = [0, 0.1905];
-% FF_test.topInsulation{1, 3} = 1.75;          % W/mK
-% FF_test.topInsulation{1, 4} = 2210;          % kg/m3
-% FF_test.topInsulation{1, 5} = 1046.7;        % J/kgK
-% FF_test.topInsulation{2, 1} = 'ss304';
-% FF_test.topInsulation{2, 2} = [0.1905, 0.1905+0.0063];
-% FF_test.topInsulation{2, 3} = 30;          % W/mK
-% FF_test.topInsulation{2, 4} = 7700;        % kg/m3
-% FF_test.topInsulation{2, 5} = 500;         % J/kgK
+FF_test.roofInsulation{1, 1} = 'nutec';         % name
+FF_test.roofInsulation{1, 2} = [0, 0.3048];     % (m) dimensions/thickness [y1, y2]
+FF_test.roofInsulation{1, 3} = 0.4;             % (W/mK) thermal conductivity
+FF_test.roofInsulation{1, 4} = 64;              % (kg/m3) density
+FF_test.roofInsulation{1, 5} = 1130.4;          % (J/kgK) specific heat capacity
+
+FF_test.roofInsulation{2, 1} = 'elmtherm';
+FF_test.roofInsulation{2, 2} = [0.3048, 0.3048 + 0.0254];
+FF_test.roofInsulation{2, 3} = 0.025;
+FF_test.roofInsulation{2, 4} = 270;
+FF_test.roofInsulation{2, 5} = 1005;
+
+FF_test.roofInsulation{3, 1} = 'steel ceiling';
+FF_test.roofInsulation{3, 2} = [0.3048 + 0.0254, 0.3048 + 0.0254 + 0.00635];
+FF_test.roofInsulation{3, 3} = 30;
+FF_test.roofInsulation{3, 4} = 7700;
+FF_test.roofInsulation{3, 5} = 500;
 
 % compute prototype overall heat transfer coefficients to surroundings
 computeUbase(FF_test); computeUwall(FF_test);
