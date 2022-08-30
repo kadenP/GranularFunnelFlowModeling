@@ -225,7 +225,7 @@ testR = FF_test.r;
 
 % set timing parameters
 FF_test.df = FF_test.t2Fo(1200, 1);
-FF_test.FoEnd = FF_test.t2Fo(3600*6 + 3600*10 + 3600*8, 1);
+FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*8)*2, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*10, 1);
 
 FF_test.thetaFolder = 'thetaTest';
@@ -243,7 +243,16 @@ end
 for i = 18:48
     FF_test.FoMode{1, i} = 'H';
 end
-for i = 48:length(FF_test.Fo)
+for i = 48:72
+    FF_test.FoMode{1, i} = 'D';
+end
+for i = 72:90
+    FF_test.FoMode{1, i} = 'C';
+end
+for i = 90:120
+    FF_test.FoMode{1, i} = 'H';
+end
+for i = 120:length(FF_test.Fo)
     FF_test.FoMode{1, i} = 'D';
 end
 

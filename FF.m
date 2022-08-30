@@ -706,6 +706,7 @@ classdef FF < handle
             obj.FS0 = obj.thetaS;
             nch = length(obj.zbarH); mch = length(obj.rbarH);
             IC = ones(nch, mch); zIC = obj.zbarH; rIC = obj.rbarH;
+            obj.Tp = obj.theta2TK(mean(IC(end, :)));
             % initialize wall systems
             initializeBaseSys(obj);
 %             initializeTopSys(obj);
@@ -747,6 +748,7 @@ classdef FF < handle
                         ub = mean(mean(obj.theta{end, 1}(1, :)))*ones(10, 1);
                         uw = mean(mean(obj.theta{end, 1}(:, end)))*ones(10, 1);
                         obj.Tp = obj.theta2TK(mean(IC(end, :)));
+%                         obj.Tp = obj.theta2TK(1);
                         Fo_ = linspace(0, obj.df, 10);
                         computeBaseSys(obj, ub, Fo_);                       
                         computeWallSys(obj, uw, Fo_); 
@@ -774,6 +776,7 @@ classdef FF < handle
                         ub = mean(mean(obj.theta{end, 1}(1, :)))*ones(10, 1);
                         uw = mean(mean(obj.theta{end, 1}(:, end)))*ones(10, 1);
                         obj.Tp = obj.theta2TK(mean(IC(end, :)));
+%                         obj.Tp = obj.theta2TK(1);
                         Fo_ = linspace(0, obj.df, 10);
                         computeBaseSys(obj, ub, Fo_);                       
                         computeWallSys(obj, uw, Fo_);
@@ -807,6 +810,7 @@ classdef FF < handle
                         ub = mean(mean(obj.theta{end, 1}(1, :)))*ones(10, 1);
                         uw = mean(mean(obj.theta{end, 1}(:, end)))*ones(10, 1);
                         obj.Tp = obj.theta2TK(mean(IC(end, :)));
+%                         obj.Tp = obj.theta2TK(1);
                         Fo_ = linspace(0, obj.df, 10);
                         computeBaseSys(obj, ub, Fo_);                       
                         computeWallSys(obj, uw, Fo_);
@@ -2448,10 +2452,13 @@ classdef FF < handle
         function initializeER(obj)
             % initialized state variables for enclosure radiation system
             N = size(obj.roofInsulation, 1); M = size(obj.wallInsulation, 1);
-%             setERMassMatrix(obj);
-%             setERTimeConstants(obj);
+            setERMassMatrix(obj);
+            setERTimeConstants(obj);
             obj.thetaRoof = zeros(1, N);
-            obj.thetaWA = zeros(1, M);           
+            obj.thetaWA = zeros(1, M);
+            y0 = computeERInitialCondition(obj);
+            obj.qRadR = qs2QR(obj, y0(N+M+2));
+            obj.qRadW = qs2QW(obj, y0(N+M+3));            
         end        
         function computeER(obj, Fo_)
             % computes the temperatures and heat transfer data for the
@@ -2464,8 +2471,8 @@ classdef FF < handle
             obj.thetaRoof = y(end, 1:N);
             obj.thetaWA = y(end, N+1:N+M);
             obj.thetaA = y(end, N+M+1);
-            obj.qRadR = y(end, N+M+2);
-            obj.qRadW = y(end, N+M+3);         
+            obj.qRadR = qs2QR(obj, y(end, N+M+2));
+            obj.qRadW = qs2QW(obj, y(end, N+M+3));         
         end
         function setERTimeConstants(obj)
             % computes the time constants for the roof and wall odes
@@ -2543,15 +2550,15 @@ classdef FF < handle
         end
         function y0 = computeERInitialCondition(obj)
             % computes the initial condition for all state variables
-            yR1_ = obj.theta2T(obj.thetaRoof(1));
-            yW1_ = obj.theta2T(obj.thetaWA(1));
+            yR1_ = obj.thetaRoof(1);
+            yW1_ = obj.thetaWA(1);
             y0_ = erInitialConditionFcn(obj, yR1_, yW1_); 
             y0 = [obj.thetaRoof'; obj.thetaWA'; obj.thetaA; y0_];
         end
         function y = erInitialConditionFcn(obj, yR1, yW1)
             % computes the initial condition for all states with the
             % initial temperature condition for the wall and roof
-            y(1, 1) = obj.Hp^2/(obj.alphapPacked*obj.CapRoof{1, 2}*(obj.T0 - obj.Tinf)) ...
+            y(1, 1) = obj.H^2/(obj.alphaPacked*obj.CapRoof{1, 2}*(obj.H/obj.Hp)^3*(obj.T0 - obj.Tinf)) ...
                     *(((obj.Ap^2*(obj.sigma*(obj.Tp)^4)*obj.Fpr*obj.Fpw*obj.epsilonP ...
                     + obj.Ar^2*(obj.sigma*(obj.theta2TK(yR1)).^4)*obj.Fpr*obj.Frw*obj.epsilonR ...
                     + obj.Ar^2*(obj.sigma*(obj.theta2TK(yR1)).^4)*obj.Fpw*obj.Frw*obj.epsilonR ...
@@ -2653,7 +2660,7 @@ classdef FF < handle
                     + obj.Ar*obj.Aw*obj.Fpw*obj.Frw*obj.epsilonP*obj.epsilonR*obj.epsilonW)) ...
                     - obj.sigma*(obj.theta2TK(yR1)).^4) ...
                     ./((1 - obj.epsilonR)/(obj.epsilonR*obj.Ar));
-           y(2, 1) = obj.Hp^2/(obj.alphapPacked*obj.CapWA{1, 2}*(obj.T0 - obj.Tinf)) ...
+           y(2, 1) = obj.H^2/(obj.alphaPacked*obj.CapWA{1, 2}*(obj.H/obj.Hp)^3*(obj.T0 - obj.Tinf)) ...
                     *(((obj.Ap^2*(obj.sigma*(obj.Tp)^4)*obj.Fpr*obj.Fpw*obj.epsilonP ...
                     + obj.Ar^2*(obj.sigma*(obj.theta2TK(yR1)).^4)*obj.Fpr*obj.Frw*obj.epsilonR ...
                     + obj.Ar^2*(obj.sigma*(obj.theta2TK(yR1)).^4)*obj.Fpw*obj.Frw*obj.epsilonR ...
@@ -2785,7 +2792,7 @@ classdef FF < handle
                         obj.tauAR*(y(i, :) - y(1, :)) - obj.tauAW*(y(i, :) - y(N+1, :));
                elseif i == N+M+2
                     dae(i) = y(i, :) ...
-                        - obj.Hp^2/(obj.alphapPacked*obj.CapRoof{1, 2}*(obj.T0 - obj.Tinf)) ...
+                        - obj.H^2/(obj.alphaPacked*obj.CapRoof{1, 2}*(obj.H/obj.Hp)^3*(obj.T0 - obj.Tinf)) ...
                         *(((obj.Ap^2*(obj.sigma*(obj.Tp)^4)*obj.Fpr*obj.Fpw*obj.epsilonP ...
                         + obj.Ar^2*(obj.sigma*(obj.theta2TK(y(1, :))).^4)*obj.Fpr*obj.Frw*obj.epsilonR ...
                         + obj.Ar^2*(obj.sigma*(obj.theta2TK(y(1, :))).^4)*obj.Fpw*obj.Frw*obj.epsilonR ...
@@ -2889,7 +2896,7 @@ classdef FF < handle
                         ./((1 - obj.epsilonR)/(obj.epsilonR*obj.Ar));
                elseif i == N+M+3
                     dae(i) = y(i, :) ...
-                        - obj.Hp^2/(obj.alphapPacked*obj.CapWA{1, 2}*(obj.T0 - obj.Tinf)) ...
+                        - obj.H^2/(obj.alphaPacked*obj.CapWA{1, 2}*(obj.H/obj.Hp)^3*(obj.T0 - obj.Tinf)) ...
                         *(((obj.Ap^2*(obj.sigma*(obj.Tp)^4)*obj.Fpr*obj.Fpw*obj.epsilonP ...
                         + obj.Ar^2*(obj.sigma*(obj.theta2TK(y(1, :))).^4)*obj.Fpr*obj.Frw*obj.epsilonR ...
                         + obj.Ar^2*(obj.sigma*(obj.theta2TK(y(1, :))).^4)*obj.Fpw*obj.Frw*obj.epsilonR ...
@@ -4146,15 +4153,16 @@ classdef FF < handle
             obj.theta{kn_, 16} = qTot; %obj.qTopP;
             obj.theta{kn_, 17} = obj.qRadR;
             obj.theta{kn_, 18} = obj.qRadW;
-            obj.theta{kn_, 19} = 0;
+            obj.theta{kn_, 19} = obj.T2thetaK(obj.Tp);
+            obj.theta{kn_, 20} = 0;
             if verify_conservation
                 computeEnergyD(obj);
-                obj.theta{kn_, 20} = obj.energy;
+                obj.theta{kn_, 21} = obj.energy;
             end
             if sensitivity
-                obj.theta{kn_, 21} = obj.scPe;
-                obj.theta{kn_, 22} = obj.scQc;
-                obj.theta{kn_, 23} = obj.sca;
+                obj.theta{kn_, 22} = obj.scPe;
+                obj.theta{kn_, 23} = obj.scQc;
+                obj.theta{kn_, 24} = obj.sca;
             end
             % save if last time step
             if k_ == length(obj.Fo)
@@ -4197,10 +4205,11 @@ classdef FF < handle
             obj.theta{kn_, 16} = qTot; %obj.qTopP;
             obj.theta{kn_, 17} = obj.qRadR;
             obj.theta{kn_, 18} = obj.qRadW;
-            obj.theta{kn_, 19} = obj.QChp*obj.rhopPack*obj.Fo2t(obj.df, 1)*obj.cpp*(obj.T0 - obj.Tinf)/1000;
+            obj.theta{kn_, 19} = obj.T2thetaK(obj.Tp);
+            obj.theta{kn_,20} = obj.QChp*obj.rhopPack*obj.Fo2t(obj.df, 1)*obj.cpp*(obj.T0 - obj.Tinf)/1000;
             if verify_conservation
                 computeEnergyH(obj);
-                obj.theta{kn_, 20} = obj.energy;
+                obj.theta{kn_, 21} = obj.energy;
             end
             % save if last time step
             if k_ == length(obj.Fo)
@@ -4243,10 +4252,11 @@ classdef FF < handle
             obj.theta{kn_, 16} = qTot; %obj.qTopP;
             obj.theta{kn_, 17} = obj.qRadR;
             obj.theta{kn_, 18} = obj.qRadW;
-            obj.theta{kn_, 19} = 0;
+            obj.theta{kn_, 19} = obj.T2thetaK(obj.Tp);
+            obj.theta{kn_, 20} = 0;
             if verify_conservation
                 computeEnergyH(obj);
-                obj.theta{kn_, 20} = obj.energy;
+                obj.theta{kn_, 21} = obj.energy;
             end
             % save if last time step
             if k_ == length(obj.Fo)
@@ -5029,13 +5039,14 @@ classdef FF < handle
             z_ = [obj.theta{2, 2}, ...
                               max(obj.theta{2, 2}), 1 + 1.000001*obj.h];
             r_ = obj.theta{2, 3};
-            theta_  = [obj.theta{2, 1}; obj.thetaA*ones(2, length(r_))];
+            thetaA_ = obj.theta{2, 12};
+            theta_  = [obj.theta{2, 1}; thetaA_*ones(2, length(r_))];
             if dimensions
                 [~, tfigs1] = plotZRTempNoWall(obj, obj.theta2T(theta_), ...
                                           z_, r_, true);
                 ylabel(colorbar, '$T$ ($^\circ$C)', 'interpreter', ...
                     'latex', 'FontSize', 14); 
-                caxis([350, 800]);
+                caxis([20, 800]);
             else
                 [~, tfigs1] = plotZRTempNoWall(obj, theta_, z_, r_, true);
                 ylabel(colorbar, '$\theta$', 'interpreter', 'latex', ...
@@ -5059,8 +5070,9 @@ classdef FF < handle
                 z_ = [obj.theta{ii_, 2}, ...
                               max(obj.theta{ii_, 2}), 1 + 1.000001*obj.h];
                 r_ = obj.theta{ii_, 3};
+                thetaA_ = obj.theta{ii_, 12};
                 theta_  = [obj.theta{ii_, 1}; ...
-                                  obj.thetaA*ones(2, length(r_))];                              
+                                  thetaA_*ones(2, length(r_))];                              
                 [R, Z] = meshgrid(r_, z_);                 
                 if dimensions 
                     set(tfigs1, 'XData', R, 'YData', Z, ...
@@ -5993,6 +6005,192 @@ classdef FF < handle
             legend('boxoff')
             xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
             ylabel('Base Flux ($W/m^2$)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end
+        function [f, t, waTemps] = plotTopWallTemp(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.wallInsulation, 1); % number of layers
+            r_ = NaN*ones(N, 1);
+            for i = 1:N, r_(i) = obj.wallInsulation{i, 2}(2); end
+            thetaW_ = NaN*ones(length(obj.Fo), N);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaW_(ii, :) = obj.theta{ii_, 10};
+            end
+            waTemps = obj.theta2T(thetaW_);
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, obj.theta2T(thetaW_(:, i)), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(r_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Top Wall Temperature ($^\circ$C)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end
+        function [f, t, waFlux] = plotWallRadiation(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.wallInsulation, 1); % number of layers
+            r_ = NaN*ones(N, 1);
+            for i = 1:N, r_(i) = obj.wallInsulation{i, 2}(2); end
+            thetaW_ = NaN*ones(length(obj.Fo), N);
+            waFlux = NaN*ones(length(obj.Fo), N+1);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaW_(ii, :) = obj.theta{ii_, 10};
+                waFlux(ii, 1) = obj.theta{ii_, 18};
+            end
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, waFlux(:, i), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(r_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Wall Radiation ($W$)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end
+        function [f, t, roofTemps] = plotRoofTemp(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.roofInsulation, 1); % number of layers
+            t_ = NaN*ones(N, 1);
+            for i = 1:N, t_(i) = obj.roofInsulation{i, 2}(2); end
+            thetaR_ = NaN*ones(length(obj.Fo), N);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaR_(ii, :) = obj.theta{ii_, 9};
+            end
+            roofTemps = obj.theta2T(thetaR_);
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, obj.theta2T(thetaR_(:, i)), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(t_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Roof Layer Temperatures ($^\circ$C)', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14)
+            xlim([0, max(t)/3600]);
+        end
+        function [f, t, roofFlux] = plotRoofRadiation(obj, prototype)
+            % plots the transient temperature of each wall layer
+            % load data
+            N = size(obj.roofInsulation, 1); % number of layers
+            t_ = NaN*ones(N, 1);
+            for i = 1:N, t_(i) = obj.roofInsulation{i, 2}(2); end
+            thetaR_ = NaN*ones(length(obj.Fo), N);
+            roofFlux = NaN*ones(length(obj.Fo), N+1);
+            t = NaN*ones(length(obj.Fo), 1);
+            for ii = 2:length(obj.Fo)                                      
+                ii_ = mod(ii-1, obj.ls) + 1;
+                if prototype
+                    t(ii) = obj.Fo2t(obj.Fo(ii), 1);
+                else
+                    t(ii) = obj.Fo2t(obj.Fo(ii));
+                end
+                % update domain according to mass accounting
+                if ii == 2
+                    loadTheta(obj, 1+obj.ls-1);
+                end
+                if ii_ == 1 && ii ~= length(obj.Fo)
+                    loadTheta(obj, ii+obj.ls-1);
+                end
+                thetaR_(ii, :) = obj.theta{ii_, 9};
+                roofFlux(ii, 1) = obj.theta{ii_, 17};
+            end
+            % plot transient temperature
+            f = figure('Units', 'normalized', 'color', 'white', ...
+                                          'Position', [0 0 0.5 0.4]);
+            colormap(bone);
+            labels = cell(N, 1);
+            for i = 1:N
+                plot(t/3600, roofFlux(:, i), 'LineWidth', 1); hold on;
+                labels{i} = strcat(num2str(t_(i)), ' m');
+            end
+            legend(labels, ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Roof Radiation ($W$)', ... 
                    'interpreter', 'latex', 'FontSize', 16);
             set(gca, 'box', 'off', 'TickDir', 'both', ...
                 'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
