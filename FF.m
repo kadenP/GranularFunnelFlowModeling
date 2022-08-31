@@ -517,14 +517,16 @@ classdef FF < handle
                         nodeGen(obj, [0, obj.b], obj.nrH);
             obj.rhat = 1e-6:obj.drhat:obj.a0;
             obj.r = [obj.rhat, obj.rbar(2:end)];
-            obj.zbar0 = nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            [obj.zbar, obj.dzbar] = ... 
-                        nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            [obj.zbarH, obj.dzH] = ... 
-                        nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.zbar0 = nodeGen(obj, [0, 1], obj.nzbar);
+%             [obj.zbar, obj.dzbar] = ... 
+%                         nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            obj.zbar = 0:obj.dzbar:obj.ztop;
+%             [obj.zbarH, obj.dzH] = ... 
+%                         nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.zbarH = 0:obj.dzH:obj.ztop;
             obj.zcenter = 0:obj.dzc:obj.ztop;
             obj.zhat = 0:obj.dzhat:obj.h;
-            obj.z = [obj.zbar0, 1+obj.zhat(2:end)];
+            obj.z = [obj.zbar, 1+obj.zhat(2:end)];
             obj.zmc = 0:obj.dzmc:obj.hCone;
             obj.HNow = obj.zbar(end)*obj.H;    
             obj.HNowC = obj.zbarH(end)*obj.H;
@@ -598,13 +600,15 @@ classdef FF < handle
             obj.rhat = 1e-15:obj.drhat:obj.a0; 
             obj.r = [obj.rhat, obj.rbar(2:end)];
             obj.zbar0 = nodeGen(obj, [0, 1], obj.nzbar);
-            [obj.zbar, obj.dzbar] = ... 
-                        nodeGen(obj, [0, obj.ztop], obj.nzbar);
+%             [obj.zbar, obj.dzbar] = ... 
+%                         nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            obj.zbar = 0:obj.dzbar:obj.ztop;
             obj.zcenter = 0:obj.dzc:obj.ztop;
             obj.zhat = 0:obj.dzhat:obj.h; 
-            [obj.zbarH, obj.dzH] = ... 
-                        nodeGen(obj, [0, obj.ztop], obj.nzH);
-            obj.z = [obj.zbar0, 1+obj.zhat(2:end)];
+%             [obj.zbarH, obj.dzH] = ... 
+%                         nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.zbarH = 0:obj.dzH:obj.ztop;
+            obj.z = [obj.zbar, 1+obj.zhat(2:end)];
             obj.zmc = 0:obj.dzmc:obj.hCone;
             obj.HNow = obj.zbar(end)*obj.H;  
             obj.HNowC = obj.zbarH(end)*obj.H;
@@ -915,8 +919,9 @@ classdef FF < handle
         end
         function matchHoldIC(obj, IC, zIC, rIC, verify_conservation)
             if nargin < 4, verify_conservation = 0; end
-            [obj.zbarH, obj.dzH] = ...
-                              nodeGen(obj, [0, obj.ztop], obj.nzH);
+%             [obj.zbarH, obj.dzH] = ...
+%                               nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.zbarH = 0:obj.dzH:obj.ztop;
             [R, Z] = meshgrid(rIC, zIC);
             [Rq, Zq] = meshgrid(obj.rbarH, obj.zbarH);
             obj.rhoH = interp2(R, Z, IC, Rq, Zq, 'makima');
@@ -930,8 +935,9 @@ classdef FF < handle
         end
         function matchChargeIC(obj, IC, zIC, rIC, verify_conservation)
             if nargin < 4, verify_conservation = 0; end
-            [obj.zbarH, obj.dzH] = ...
-                              nodeGen(obj, [0, obj.ztop], obj.nzH);
+%             [obj.zbarH, obj.dzH] = ...
+%                               nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.zbarH = 0:obj.dzH:obj.ztop;
             [R, Z] = meshgrid(rIC, zIC);
             [Rq, Zq] = meshgrid(obj.rbarH, obj.zbarH);
             obj.rhoH = interp2(R, Z, IC, Rq, Zq, 'makima');
@@ -948,8 +954,9 @@ classdef FF < handle
             if nargin < 4, verify_conservation = 0; end
             obj.ztop = obj.ztop - obj.h;
             obj.HNow = obj.ztop*obj.H;
-            [obj.zbar, obj.dzbar] = ...
-                            nodeGen(obj, [0, obj.ztop], obj.nzbar);
+%             [obj.zbar, obj.dzbar] = ...
+%                             nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            obj.zbar = 0:obj.dzbar:obj.ztop;
             obj.zcenter = 0:obj.dzc:obj.ztop;
             [~, i] = min(abs(obj.zbar(end) - zIC));
             [~, j] = min(abs(obj.rbar(1) - rIC));
@@ -966,6 +973,9 @@ classdef FF < handle
             [R, Z] = meshgrid(rIC(j:end), zIC(i:end) - zIC(i));
             [Rq, Zq] = meshgrid(obj.rtop, obj.zhat);
             obj.thetaT = interp2(R, Z, IC(i:end, j:end), Rq, Zq, 'makima');
+            yt = obj.T2S('top'); yc = obj.C2S('top');          
+            obj.g1 = obj.Bi1*(ones(size(yt)) - obj.thetaI); 
+            obj.g3 = obj.Bi3*(ones(size(yc)) - obj.thetaI); 
             % match dimensions for heat loss on top surface
 %             obj.qTopP{1} = interp1(rIC, obj.qTopP{1}, ...
 %                                  [obj.rhat(1:end-1), obj.rbar], 'makima');
@@ -4017,34 +4027,37 @@ classdef FF < handle
             % fits z meshes to be between 0 and ztop, resizing dzbar and
             % dzc accordingly. Adjusts the length according to the time
             % step relative to the set update frequency, modZ.
-            [~, n] = min(abs(obj.FoNow - obj.Fo));
-            if mod(n, obj.modZH) == 0
-                obj.nzH = length(obj.zbarH) + 1; 
-            else
-                obj.nzH = length(obj.zbarH);
-            end
-            [obj.zbarH, obj.dzH] = ...
-                              nodeGen(obj, [0, obj.ztop], obj.nzH);         
+%             [~, n] = min(abs(obj.FoNow - obj.Fo));
+%             if mod(n, obj.modZH) == 0
+%                 obj.nzH = length(obj.zbarH) + 1; 
+%             else
+%                 obj.nzH = length(obj.zbarH);
+%             end
+%             [obj.zbarH, obj.dzH] = ...
+%                               nodeGen(obj, [0, obj.ztop], obj.nzH);  
+            obj.zbarH = 0:obj.dzH:obj.ztop;
         end
         function fitzMesh(obj)
             % fits z meshes to be between 0 and ztop, resizing dzbar and
             % dzc accordingly. Adjusts the length according to the time
             % step relative to the set update frequency, modZ.
-            [~, n] = min(abs(obj.FoNow - obj.Fo));
-            if mod(n, obj.modZS) == 0
-                obj.nzbar = length(obj.zbar) - 1; 
-            else
-                obj.nzbar = length(obj.zbar);
-            end
-            if mod(n, obj.modZC) == 0
-                nzc = length(obj.zcenter) - 1;
-            else
-                nzc = length(obj.zcenter);
-            end
-            [obj.zbar, obj.dzbar] = ...
-                            nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            obj.zcenter = linspace(0, obj.ztop, nzc);
-            obj.dzc = obj.zcenter(2);
+%             [~, n] = min(abs(obj.FoNow - obj.Fo));
+%             if mod(n, obj.modZS) == 0
+%                 obj.nzbar = length(obj.zbar) - 1; 
+%             else
+%                 obj.nzbar = length(obj.zbar);
+%             end
+%             if mod(n, obj.modZC) == 0
+%                 nzc = length(obj.zcenter) - 1;
+%             else
+%                 nzc = length(obj.zcenter);
+%             end
+%             [obj.zbar, obj.dzbar] = ...
+%                             nodeGen(obj, [0, obj.ztop], obj.nzbar);
+%             obj.zcenter = linspace(0, obj.ztop, nzc);
+%             obj.dzc = obj.zcenter(2);
+            obj.zbar = 0:obj.dzbar:obj.ztop;
+            obj.zcenter = 0:obj.dzc:obj.ztop;
             computeWbar(obj);
             computeUbar(obj);            
         end
@@ -4057,7 +4070,7 @@ classdef FF < handle
                     obj.thetaH = [obj.thetaH; ...
                            obj.thetaCi*ones(1, length(obj.thetaH(1, :)))];
                     % compute temperature distribution for mixing depth
-                    setMixingProfileC(obj);
+%                     setMixingProfileC(obj);
                     % set new initial condition for next time step
                     obj.rhoH = obj.thetaH; 
                 end

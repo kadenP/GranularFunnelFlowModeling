@@ -42,9 +42,9 @@ FF_test.CapWall = 1e2;
 FF_test.dz = 0.01;
 FF_test.dr = 0.01;
 
-FF_test.dzbar = 0.0001;
+FF_test.dzbar = 0.0005;
 FF_test.nzbar = 1000;
-% FF_test.dzH = 0.001;
+FF_test.dzH = 0.0005;
 FF_test.nzH = 2000;
 FF_test.dzc = 0.005;
 % FF_test.mu = 1;
@@ -232,27 +232,27 @@ FF_test.thetaFolder = 'thetaTest';
 FF_test.ls = 50;
 FF_test.ztop = 0.1;
 FF_test.reInitObj;
-FF_test.deltaM = 0.02;
+FF_test.deltaM = 0.005;
 
 FF_test.tauW1 = FF_test.t2Fo(3600, 1);
 FF_test.thetaI = 0.9;
 
-for i = 1:18
+for i = 1:19
     FF_test.FoMode{1, i} = 'C';
 end
-for i = 18:48
+for i = 19:49
     FF_test.FoMode{1, i} = 'H';
 end
-for i = 48:72
+for i = 49:73
     FF_test.FoMode{1, i} = 'D';
 end
-for i = 72:90
+for i = 73:91
     FF_test.FoMode{1, i} = 'C';
 end
-for i = 90:120
+for i = 91:121
     FF_test.FoMode{1, i} = 'H';
 end
-for i = 120:length(FF_test.Fo)
+for i = 121:length(FF_test.Fo)
     FF_test.FoMode{1, i} = 'D';
 end
 
