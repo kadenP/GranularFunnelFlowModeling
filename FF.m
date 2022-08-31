@@ -5051,9 +5051,10 @@ classdef FF < handle
             else, loadTheta(obj, obj.ls); end
             z_ = [obj.theta{2, 2}, ...
                               max(obj.theta{2, 2}), 1 + 1.000001*obj.h];
-            r_ = obj.theta{2, 3};
+            r_ = [-fliplr(obj.theta{2, 3}), obj.theta{2, 3}];
             thetaA_ = obj.theta{2, 12};
-            theta_  = [obj.theta{2, 1}; thetaA_*ones(2, length(r_))];
+            theta_  = [fliplr(obj.theta{2, 1}), obj.theta{2, 1}; ...
+                           thetaA_*ones(2, length(r_))];
             if dimensions
                 [~, tfigs1] = plotZRTempNoWall(obj, obj.theta2T(theta_), ...
                                           z_, r_, true);
@@ -5082,9 +5083,9 @@ classdef FF < handle
                 end
                 z_ = [obj.theta{ii_, 2}, ...
                               max(obj.theta{ii_, 2}), 1 + 1.000001*obj.h];
-                r_ = obj.theta{ii_, 3};
+                r_ = [-fliplr(obj.theta{ii_, 3}), obj.theta{ii_, 3}];
                 thetaA_ = obj.theta{ii_, 12};
-                theta_  = [obj.theta{ii_, 1}; ...
+                theta_  = [fliplr(obj.theta{ii_, 1}), obj.theta{ii_, 1}; ...
                                   thetaA_*ones(2, length(r_))];                              
                 [R, Z] = meshgrid(r_, z_);                 
                 if dimensions 
@@ -6391,6 +6392,33 @@ classdef FF < handle
                 'TickLabelInterpreter', 'latex', 'FontSize', 12) 
             
         end
+        function plotAirTemp(obj)
+            % plots heat loss at discrete points in the composite wall
+            % initialize domain ,temperature, and velocity distributions
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            t = zeros(length(obj.Fo), 1);
+            Ta_ = zeros(length(obj.Fo), 1);
+            for i = 2:length(obj.Fo)                                      
+                i_ = mod(i-1, obj.ls) + 1;
+                if i_ == 1 && i ~= length(obj.Fo)
+                    loadTheta(obj, i+obj.ls-1);
+                end
+                t(i) = obj.Fo2t(obj.Fo(i), 1);
+                Ta_(i) = obj.theta2T(obj.theta{i_, 12});             
+            end
+            % plot total heat transfer for each segment
+            figure('Units', 'normalized', 'color', 'white', ...
+                                     'Position', [0 0 0.5 0.3]); hold on;
+            plot(t(2:end-1)/3600, Ta_(2:end-1), '-k');
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$T_a$ ($^\circ C$)', 'interpreter', 'latex', ...
+                                                      'FontSize', 14);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 12) 
+            
+        end
         function plotTempPoint(obj, z_, r_, dimensions, exp_cmp)
             % plots temperature for specified zbar and rbar
             figure('Units', 'normalized', ...
@@ -6493,12 +6521,12 @@ classdef FF < handle
             [R, Z] = meshgrid(r, z); 
             % plot contour
             fzri = figure('Units', 'normalized', ...
-                'Position', [0 0 obj.b 1], 'Visible', 'off');
+                'Position', [0 0 2*obj.b 1], 'Visible', 'off');
             pzri1 = surf(R, Z, temp, 'EdgeColor', 'interp', ...
                  'FaceColor', 'interp');
-            xlim([0, max(R(:))])
+            xlim([min(R(:)), max(R(:))])
             ylim([min(Z(:)), max(Z(:))])
-            pbaspect([obj.b, 1, 1]);  % figure sized proportional to aspect ratio
+            pbaspect([2*obj.b, 1, 1]);  % figure sized proportional to aspect ratio
             view(0, 90);
             caxis([obj.T2theta(obj.Tinf), 1]);
             colormap(jet);
@@ -6795,7 +6823,7 @@ classdef FF < handle
 %             ii_ = mod(length(obj.Fo)-1, obj.ls) + 1;
             ii_ = 21;
             % update domain according to mass accounting
-%             loadTheta(obj, length(obj.Fo));   
+   
             loadTheta(obj, obj.ls); 
             z_ = obj.theta{ii_, 2};
             r_ = obj.theta{ii_, 3}(1:18);
@@ -6813,6 +6841,43 @@ classdef FF < handle
             set(pzri, 'linestyle', 'none');
             caxis([600, 790]);                  
             set(gca, 'YTickLabel', [], 'XTickLabel', []);
+        end
+        function saveData(obj)
+            % saves simulation data to spreadsheet
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            computeThetaO(obj);
+            t = zeros(length(obj.Fo), 1);
+            Tout = [0; obj.thetaOB(:, 2)];
+            TvAve = zeros(length(obj.Fo), 1);
+            qLossTot = zeros(length(obj.Fo), 1);            
+            Ta_ = zeros(length(obj.Fo), 1);
+            z_ = obj.theta{2, 2};
+            r_ = obj.theta{2, 3};
+            theta_  = obj.theta{2, 1};
+            fz = simpsonIntegrator(obj, z_);
+            fr = simpsonIntegrator(obj, r_);
+            Ir = 2*pi*(r_.*theta_)*fr';
+            TvAve(1) = obj.theta2T(Ir'*fz'./(pi*obj.bp^2*max(z_)));
+            for i = 2:length(obj.Fo)                                      
+                i_ = mod(i-1, obj.ls) + 1;
+                if i_ == 1 && i ~= length(obj.Fo)
+                    loadTheta(obj, i+obj.ls-1);
+                end
+                t(i) = obj.Fo2t(obj.Fo(i), 1);                
+                qLossTot(i) = obj.theta{i_, 14};
+                Ta_(i) = obj.theta2T(obj.theta{i_, 12});
+                z_ = obj.theta{i_, 2};
+                r_ = obj.theta{i_, 3};
+                theta_  = obj.theta{i_, 1};  
+                fz = simpsonIntegrator(obj, z_);
+                fr = simpsonIntegrator(obj, r_);
+                Ir = 2*pi*(r_.*theta_)*fr';
+                TvAve(i) = obj.theta2T(Ir'*fz'./(pi*obj.bp^2*max(z_)));
+            end
+            % save data to spreadsheet
+            tbl = table(t, obj.theta2T(Tout), TvAve, qLossTot, Ta_);
+            writetable(tbl, 'FFSimTable.xlsx');                       
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % other

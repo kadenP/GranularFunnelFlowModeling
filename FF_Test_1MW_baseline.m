@@ -225,7 +225,7 @@ testR = FF_test.r;
 
 % set timing parameters
 FF_test.df = FF_test.t2Fo(1200, 1);
-FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*8)*2, 1);
+FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*2, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*10, 1);
 
 FF_test.thetaFolder = 'thetaTest';
