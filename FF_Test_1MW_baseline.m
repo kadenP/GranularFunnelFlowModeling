@@ -19,7 +19,7 @@ FF_test.QChp = Qcharge/FF_test.rhopPack;
 % set simulation parameters
 FF_test.Tinf = 21;
 FF_test.T0 = 800;
-FF_test.thetaA = 0.0;
+FF_test.thetaA = 0.5;
 FF_test.H = 0.1;
 FF_test.h = 0.0011;
 FF_test.a0 = 0.044;
@@ -224,9 +224,11 @@ testZ = FF_test.z;
 testR = FF_test.r;
 
 % set timing parameters
-FF_test.df = FF_test.t2Fo(1200, 1);
-FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*2, 1);
+% FF_test.df = FF_test.t2Fo(1200, 1);
+% FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*4, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*10, 1);
+FF_test.df = FF_test.t2Fo(600, 1);
+FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*2, 1);
 
 FF_test.thetaFolder = 'thetaTest';
 FF_test.ls = 50;
@@ -237,28 +239,65 @@ FF_test.deltaM = 0.005;
 FF_test.tauW1 = FF_test.t2Fo(3600, 1);
 FF_test.thetaI = 0.9;
 
-for i = 1:19
-    FF_test.FoMode{1, i} = 'C';
-end
-for i = 19:49
-    FF_test.FoMode{1, i} = 'H';
-end
-for i = 49:73
-    FF_test.FoMode{1, i} = 'D';
-end
-for i = 73:91
-    FF_test.FoMode{1, i} = 'C';
-end
-for i = 91:121
-    FF_test.FoMode{1, i} = 'H';
-end
-for i = 121:length(FF_test.Fo)
-    FF_test.FoMode{1, i} = 'D';
-end
+% for i = 1:19
+%     FF_test.FoMode{1, i} = 'C';
+% end
+% for i = 19:49
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 49:76
+%     FF_test.FoMode{1, i} = 'D';
+% end
+% for i = 76:94
+%     FF_test.FoMode{1, i} = 'C';
+% end
+% for i = 94:124
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 124:151
+%     FF_test.FoMode{1, i} = 'D';
+% end
+% for i = 151:169
+%     FF_test.FoMode{1, i} = 'C';
+% end
+% for i = 169:199
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 199:226
+%     FF_test.FoMode{1, i} = 'D';
+% end
+% for i = 226:244
+%     FF_test.FoMode{1, i} = 'C';
+% end
+% for i = 244:274
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 274:length(FF_test.Fo)
+%     FF_test.FoMode{1, i} = 'D';
+% end
 
 % for i = 1:length(FF_test.Fo)
 %     FF_test.FoMode{1, i} = 'H';
 % end
+
+for i = 1:37
+    FF_test.FoMode{1, i} = 'C';
+end
+for i = 37:97
+    FF_test.FoMode{1, i} = 'H';
+end
+for i = 97:151
+    FF_test.FoMode{1, i} = 'D';
+end
+for i = 151:187
+    FF_test.FoMode{1, i} = 'C';
+end
+for i = 187:147
+    FF_test.FoMode{1, i} = 'H';
+end
+for i = 147:length(FF_test.FoMode)
+    FF_test.FoMode{1, i} = 'D';
+end
 
 simulateStorageTheta(FF_test, 0, 0);
 
