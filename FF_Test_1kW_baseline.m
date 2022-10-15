@@ -127,12 +127,12 @@ FF_test.wallInsulation{4, 5} = 500;            % J/kgK
 % set insulation specifications for bin base
 % new insulation configuration
 FF_test.baseInsulation{1, 1} = 'particles';
-FF_test.baseInsulation{1, 2} = [0, 0.1]*FF_test.Hp/7;
+FF_test.baseInsulation{1, 2} = [0, 0.01];
 FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
 FF_test.baseInsulation{2, 1} = 'fondag';
-FF_test.baseInsulation{2, 2} = [0.1, (0.1+0.1905)]*FF_test.Hp/7;
+FF_test.baseInsulation{2, 2} = [0.01, (0.01+0.127)];
 FF_test.baseInsulation{2, 3} = 1.75;          % W/mK
 FF_test.baseInsulation{2, 4} = 2210;          % kg/m3
 FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK
@@ -242,22 +242,22 @@ for i = 42:length(FF_test.Fo)
     FF_test.FoMode{1, i} = 'D';
 end
 
-simulateStorageTheta(FF_test, 0, 0);
+% simulateStorageTheta(FF_test, 0, 0);
 
 %% simulate step response for wall and base models
-% t = 0:3600*24;
-% u = ones(size(t));
-% initializeWallSys(FF_test); initializeBaseSys(FF_test);
-% yWall = FF_test.computeWallSys(u, FF_test.t2Fo(t, 1));
-% yBase = FF_test.computeBaseSys(u, FF_test.t2Fo(t, 1));
-% 
-% figure('Units', 'normalized', 'color', 'white', ...
-%                                      'Position', [0 0 0.5 0.3]); hold on;
-% hold on;
-% plot(t/3600, FF_test.theta2T(yWall(:, 2:5)), '-k');
+t = 0:3600*24;
+u = ones(size(t));
+initializeWallSys(FF_test); initializeBaseSys(FF_test);
+yWall = FF_test.computeWallSys(u, FF_test.t2Fo(t, 1));
+yBase = FF_test.computeBaseSys(u, FF_test.t2Fo(t, 1));
+
+figure('Units', 'normalized', 'color', 'white', ...
+                                     'Position', [0 0 0.5 0.3]); hold on;
+hold on;
+plot(t/3600, FF_test.theta2T(yBase(:, 3)), '-k');
 % title('Design 1 (Original)', 'interpreter', 'latex', 'FontSize', 14);
-% xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 14);
-% ylabel('$T$ ($^\circ$C)', 'interpreter', 'latex', 'FontSize', 14);
+xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 14);
+ylabel('$T$ ($^\circ$C)', 'interpreter', 'latex', 'FontSize', 14);
 
 
 
