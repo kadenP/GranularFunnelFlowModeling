@@ -1,21 +1,28 @@
-classdef FF < handle
+ classdef FF < handle
     properties   
         % dependent variables
         FoEnd = 1   % simulation end time
         rtop        % r-coordinates for calculations in top boundary
+        nrtop = 100 % number of r-nodes in top boundary
         rbar        % r-coordinates for calculations in stagnant region and 
                     % top boundary
-        nrbar = 100 % number of r-nodes to use for stagnant region
+        nrbar = 1000 % number of r-nodes to use for stagnant region
         rhat        % r-coordinate for calculations in center channel
+        nrhat = 25  % number of r-nodes in center channel
         rbarH       % r-coordinates for 'H' and 'C' computations
-        nrH = 100   % number of r-nodes to use for 'H' and 'C' computations
-        zcenter     % z-coordinates for calculations in center channel        
+        nrH = 600   % number of r-nodes to use for 'H' and 'C' computations
+        zcenter     % z-coordinates for calculations in center channel
+        nzc0 = 250  % max number of z-nodes in center channel
+        nzc         % number of z-nodes in center channel
         zbar        % z-coordinates for calculations in stagnant region
         zbar0       % initial z-coordinates for stagnant region
-        nzbar = 100 % number of z-nodes to use for stagnant region
+        nzbar0 = 1500 % initial number of mesh nodes in stagnant region
+        nzbar       % number of z-nodes to use for stagnant region
         zhat        % z-coordinates for calculations in the top boundary
+        nzhat = 20  % number of z-nodes in top boundary
         zbarH       % z-coordinates for 'H' and 'C' computations
-        nzH = 100   % number of z-nodes to use for 'H' and 'C' computations
+        nzH0 = 2000
+        nzH         % number of z-nodes to use for 'H' and 'C' computations
         mubar       % spherical coordinate system angular dimension
         rho         % spherical coordinate system radial dimension
         rho0        % initial spherical radial coordinates
@@ -202,7 +209,7 @@ classdef FF < handle
         AWm             % r-BVP boundary condition matrix
         bWm             % r eigenfunction coefficients (IC contribution)
         bWBCm           % r eigenfunction coefficients (BC contribution)
-        cWr             % lhs of reduced r-BVP boundary condition system
+        cWr             % lhs of reduced r-BVP boundary condition sysftem
         etaW            % r-BVP eigenvalues reduced for IC contribution
         betaW           % z-BVP eigenvalues reduced for IC contribution
         etaWN           % r-BVP norms
@@ -510,22 +517,23 @@ classdef FF < handle
                 obj.FoEnd = FoEnd_;
             end 
             obj.ztop = 1;
-            obj.rtop = obj.a:obj.drtop:obj.b;
+            [obj.rtop, obj.drtop] = nodeGen(obj, [obj.a, obj.b], obj.nrtop);
             [obj.rbar, obj.drbar] = ... 
                         nodeGen(obj, [obj.a0, obj.b], obj.nrbar);
             [obj.rbarH, obj.drH] = ... 
                         nodeGen(obj, [0, obj.b], obj.nrH);
-            obj.rhat = 1e-6:obj.drhat:obj.a0;
+            [obj.rhat, obj.drhat] = nodeGen(obj, [1e-6, obj.a0], obj.nrhat);
             obj.r = [obj.rhat, obj.rbar(2:end)];
-            obj.zbar0 = nodeGen(obj, [0, 1], obj.nzbar);
-%             [obj.zbar, obj.dzbar] = ... 
-%                         nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            obj.zbar = 0:obj.dzbar:obj.ztop;
-%             [obj.zbarH, obj.dzH] = ... 
-%                         nodeGen(obj, [0, obj.ztop], obj.nzH);
-            obj.zbarH = 0:obj.dzH:obj.ztop;
-            obj.zcenter = 0:obj.dzc:obj.ztop;
-            obj.zhat = 0:obj.dzhat:obj.h;
+            obj.nzbar = ceil(obj.nzbar0*obj.ztop);
+            obj.zbar0 = nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            [obj.zbar, obj.dzbar] = ... 
+                        nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            obj.nzH = ceil(obj.nzH0*obj.ztop);
+            [obj.zbarH, obj.dzH] = ... 
+                        nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.nzc = ceil(obj.nzc0*obj.ztop);
+            [obj.zcenter, obj.dzc] = nodeGen(obj, [0, obj.ztop], obj.nzc);
+            [obj.zhat, obj.dzhat] = nodeGen(obj, [0, obj.h], obj.nzhat);
             obj.z = [obj.zbar, 1+obj.zhat(2:end)];
             obj.zmc = 0:obj.dzmc:obj.hCone;
             obj.HNow = obj.zbar(end)*obj.H;    
@@ -592,25 +600,26 @@ classdef FF < handle
         function reInitObj(obj)
             % recomputes static variables. needs to be run if any of the
             % system properties are changed externally.  
-            obj.rtop = obj.a:obj.drtop:obj.b;
+            [obj.rtop, obj.drtop] = nodeGen(obj, [obj.a, obj.b], obj.nrtop);
             [obj.rbar, obj.drbar] = ... 
                         nodeGen(obj, [obj.a0, obj.b], obj.nrbar);
             [obj.rbarH, obj.drH] = ... 
                         nodeGen(obj, [0, obj.b], obj.nrH);
-            obj.rhat = 1e-15:obj.drhat:obj.a0; 
+            [obj.rhat, obj.drhat] = nodeGen(obj, [1e-6, obj.a0], obj.nrhat);
             obj.r = [obj.rhat, obj.rbar(2:end)];
-            obj.zbar0 = nodeGen(obj, [0, 1], obj.nzbar);
-%             [obj.zbar, obj.dzbar] = ... 
-%                         nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            obj.zbar = 0:obj.dzbar:obj.ztop;
-            obj.zcenter = 0:obj.dzc:obj.ztop;
-            obj.zhat = 0:obj.dzhat:obj.h; 
-%             [obj.zbarH, obj.dzH] = ... 
-%                         nodeGen(obj, [0, obj.ztop], obj.nzH);
-            obj.zbarH = 0:obj.dzH:obj.ztop;
+            obj.nzbar = ceil(obj.nzbar0*obj.ztop);
+            obj.zbar0 = nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            [obj.zbar, obj.dzbar] = ... 
+                        nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            obj.nzH = ceil(obj.nzH0*obj.ztop);
+            [obj.zbarH, obj.dzH] = ... 
+                        nodeGen(obj, [0, obj.ztop], obj.nzH);
+            obj.nzc = ceil(obj.nzc0*obj.ztop);
+            [obj.zcenter, obj.dzc] = nodeGen(obj, [0, obj.ztop], obj.nzc);
+            [obj.zhat, obj.dzhat] = nodeGen(obj, [0, obj.h], obj.nzhat);
             obj.z = [obj.zbar, 1+obj.zhat(2:end)];
             obj.zmc = 0:obj.dzmc:obj.hCone;
-            obj.HNow = obj.zbar(end)*obj.H;  
+            obj.HNow = obj.zbar(end)*obj.H;    
             obj.HNowC = obj.zbarH(end)*obj.H;
             % radiation params
             obj.Ap = pi*(obj.bp*obj.Hp)^2;
@@ -919,9 +928,9 @@ classdef FF < handle
         end
         function matchHoldIC(obj, IC, zIC, rIC, verify_conservation)
             if nargin < 4, verify_conservation = 0; end
-%             [obj.zbarH, obj.dzH] = ...
-%                               nodeGen(obj, [0, obj.ztop], obj.nzH);
-            obj.zbarH = 0:obj.dzH:obj.ztop;
+            obj.nzH = ceil(obj.nzH0*obj.ztop);
+            [obj.zbarH, obj.dzH] = ...
+                              nodeGen(obj, [0, obj.ztop], obj.nzH);
             [R, Z] = meshgrid(rIC, zIC);
             [Rq, Zq] = meshgrid(obj.rbarH, obj.zbarH);
             obj.rhoH = interp2(R, Z, IC, Rq, Zq, 'makima');
@@ -935,9 +944,9 @@ classdef FF < handle
         end
         function matchChargeIC(obj, IC, zIC, rIC, verify_conservation)
             if nargin < 4, verify_conservation = 0; end
-%             [obj.zbarH, obj.dzH] = ...
-%                               nodeGen(obj, [0, obj.ztop], obj.nzH);
-            obj.zbarH = 0:obj.dzH:obj.ztop;
+            obj.nzH = ceil(obj.nzH0*obj.ztop);
+            [obj.zbarH, obj.dzH] = ...
+                              nodeGen(obj, [0, obj.ztop], obj.nzH);
             [R, Z] = meshgrid(rIC, zIC);
             [Rq, Zq] = meshgrid(obj.rbarH, obj.zbarH);
             obj.rhoH = interp2(R, Z, IC, Rq, Zq, 'makima');
@@ -954,10 +963,12 @@ classdef FF < handle
             if nargin < 4, verify_conservation = 0; end
             obj.ztop = obj.ztop - obj.h;
             obj.HNow = obj.ztop*obj.H;
-%             [obj.zbar, obj.dzbar] = ...
-%                             nodeGen(obj, [0, obj.ztop], obj.nzbar);
-            obj.zbar = 0:obj.dzbar:obj.ztop;
-            obj.zcenter = 0:obj.dzc:obj.ztop;
+            obj.nzbar = ceil(obj.nzbar0*obj.ztop);
+            obj.nzc = ceil(obj.nzc0*obj.ztop);
+            [obj.zbar, obj.dzbar] = ...
+                            nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            [obj.zcenter, obj.dzc] = ...
+                            nodeGen(obj, [0, obj.ztop], obj.nzc);
             [~, i] = min(abs(obj.zbar(end) - zIC));
             [~, j] = min(abs(obj.rbar(1) - rIC));
             % match dimensions for stagnant region            
@@ -4035,7 +4046,9 @@ classdef FF < handle
 %             end
 %             [obj.zbarH, obj.dzH] = ...
 %                               nodeGen(obj, [0, obj.ztop], obj.nzH);  
-            obj.zbarH = 0:obj.dzH:obj.ztop;
+            obj.nzH = ceil(obj.nzH0*obj.ztop);
+            [obj.zbarH, obj.dzH] = ...
+                              nodeGen(obj, [0, obj.ztop], obj.nzH);
         end
         function fitzMesh(obj)
             % fits z meshes to be between 0 and ztop, resizing dzbar and
@@ -4056,8 +4069,11 @@ classdef FF < handle
 %                             nodeGen(obj, [0, obj.ztop], obj.nzbar);
 %             obj.zcenter = linspace(0, obj.ztop, nzc);
 %             obj.dzc = obj.zcenter(2);
-            obj.zbar = 0:obj.dzbar:obj.ztop;
-            obj.zcenter = 0:obj.dzc:obj.ztop;
+            obj.nzbar = ceil(obj.nzbar0*obj.ztop);
+            obj.nzc = ceil(obj.nzc0*obj.ztop);
+            [obj.zbar, obj.dzbar] = ...
+                            nodeGen(obj, [0, obj.ztop], obj.nzbar);
+            [obj.zcenter, obj.dzc] = nodeGen(obj, [0, obj.ztop], obj.nzc);
             computeWbar(obj);
             computeUbar(obj);            
         end
@@ -7007,9 +7023,11 @@ classdef FF < handle
         function [x, dx] = nodeGen(~, xlim, n)
             % generates a set of n chebyshev nodes spaced between xlim(1)
             % and xlim(2)
-            r_ = (xlim(2) - xlim(1))/2; theta_ = linspace(pi, 0, n);
-            x = xlim(1) + r_*(1 + cos(theta_));
-            dx = (eye(n) - diag(ones(1, n-1), -1))*x'; dx = dx(2:end);
+%             r_ = (xlim(2) - xlim(1))/2; theta_ = linspace(pi, 0, n);
+%             x = xlim(1) + r_*(1 + cos(theta_));
+%             dx = (eye(n) - diag(ones(1, n-1), -1))*x'; dx = dx(2:end);
+              x = linspace(xlim(1), xlim(2), n);
+              dx = x(2) - x(1);
         end
         function D = diffR(~, n, m, dr_)
             % creates a differential operator for first derivative in r 
