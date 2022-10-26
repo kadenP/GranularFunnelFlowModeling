@@ -229,6 +229,8 @@ testR = FF_test.r;
 % FF_test.FoEnd = FF_test.t2Fo(3600*10, 1);
 FF_test.df = FF_test.t2Fo(600, 1);
 FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*2, 1);
+% FF_test.df = FF_test.t2Fo(1200, 1);
+% FF_test.FoEnd = FF_test.t2Fo(3600*6, 1);
 
 FF_test.thetaFolder = 'thetaTest';
 FF_test.ls = 50;
@@ -238,6 +240,10 @@ FF_test.deltaM = 0.005;
 
 FF_test.tauW1 = FF_test.t2Fo(3600, 1);
 FF_test.thetaI = 0.9;
+
+% for i = 1:length(FF_test.Fo)
+%     FF_test.FoMode{1, i} = 'D';
+% end
 
 % for i = 1:19
 %     FF_test.FoMode{1, i} = 'C';

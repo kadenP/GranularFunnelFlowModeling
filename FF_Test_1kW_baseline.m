@@ -26,7 +26,7 @@ FF_test.thetaA = 0.5;
 FF_test.H = 0.1;
 FF_test.h = 0.0011;
 FF_test.a0 = 0.044;
-FF_test.aOutlet = 0.015;
+FF_test.aOutlet = 0.044;
 FF_test.a = 0.044;
 FF_test.amc = 0.044;
 FF_test.b = FF_test.bp;
@@ -127,12 +127,12 @@ FF_test.wallInsulation{4, 5} = 500;            % J/kgK
 % set insulation specifications for bin base
 % new insulation configuration
 FF_test.baseInsulation{1, 1} = 'particles';
-FF_test.baseInsulation{1, 2} = [0, 0.01];
+FF_test.baseInsulation{1, 2} = [0, 0.069];
 FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
 FF_test.baseInsulation{2, 1} = 'fondag';
-FF_test.baseInsulation{2, 2} = [0.01, (0.01+0.127)];
+FF_test.baseInsulation{2, 2} = [0.069, (0.069+0.127)];
 FF_test.baseInsulation{2, 3} = 1.75;          % W/mK
 FF_test.baseInsulation{2, 4} = 2210;          % kg/m3
 FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK
@@ -220,6 +220,7 @@ testR = FF_test.r;
 
 % set timing parameters
 FF_test.df = FF_test.t2Fo(30, 1);
+% FF_test.df = FF_test.t2Fo(60, 1);
 FF_test.FoEnd = FF_test.t2Fo(60*(8+13+10), 1);
 
 FF_test.thetaFolder = 'thetaTest';
@@ -229,6 +230,18 @@ FF_test.reInitObj;
 FF_test.deltaM = 0.005;
 
 FF_test.thetaI = 0.9;
+
+% dt = 60s
+
+% for i = 1:8
+%     FF_test.FoMode{1, i} = 'C';
+% end
+% for i = 8:21
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 21:length(FF_test.Fo)
+%     FF_test.FoMode{1, i} = 'D';
+% end
 
 % dt = 30s
 
@@ -242,7 +255,7 @@ for i = 42:length(FF_test.Fo)
     FF_test.FoMode{1, i} = 'D';
 end
 
-% simulateStorageTheta(FF_test, 0, 0);
+simulateStorageTheta(FF_test, 0, 0);
 
 %% simulate step response for wall and base models
 t = 0:3600*24;
