@@ -95,13 +95,13 @@ Ins.ztop = 0.8;
 reInitObj(Ins);
 
 % simulate wall step response
-[Twall, qWall] = simulateLumpedWallUnitStep(Ins);
+[Twall, qWall] = simulateLWUS(Ins);
 
 % simulate base step response
-[Tbase, qBase] = simulateLumpedBaseUnitStep(Ins);
+[Tbase, qBase] = simulateLBUS(Ins);
 
 % simulate roof step response
-[Troof, TwallA, Ta, qRadRoof, qRadWall] = simulateLumpedRoofUnitStep(Ins);
+[Troof, TwallA, Ta, qRadRoof, qRadWall] = simulateLRUS(Ins);
 
 
 

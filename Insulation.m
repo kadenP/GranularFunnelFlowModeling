@@ -11,7 +11,7 @@ classdef Insulation < handle
         Fo              % nondimensional time (Fourier number) vector
         df = 0.1        % nondimensional time-step
         dt              % (s) time-step
-        ztop =0.9       % nondimensional height of particles
+        ztop = 0.9      % nondimensional height of particles
         FoNow = 0       % current iteration non-dimensional time
         zbarW           % z-dimension vectors for composite wall
         rbarW           % r-dimension vectors for composite wall
@@ -308,7 +308,7 @@ classdef Insulation < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % general simulation functions
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function [Twall, qWall] = simulateLumpedWallUnitStep(obj, u)
+        function [Twall, qWall] = simulateLWUS(obj, u)
             % simulates step response with a lumped composite wall model
             if nargin < 2, u = ones(size(obj.Fo)); end
             N = size(obj.wallInsulation, 1);
@@ -319,7 +319,7 @@ classdef Insulation < handle
             obj.thetaWall = yWall(:, N+1:end); 
             Twall = obj.theta2T(obj.thetaWall);            
         end
-        function [Tbase, qBase] = simulateLumpedBaseUnitStep(obj, u)
+        function [Tbase, qBase] = simulateLBUS(obj, u)
             % simulates step response with a lumped composite base model
             if nargin < 2, u = ones(size(obj.Fo)); end
             N = size(obj.baseInsulation, 1);
@@ -330,7 +330,7 @@ classdef Insulation < handle
             obj.thetaBase = yBase(:, N+1:end); 
             Tbase = obj.theta2T(obj.thetaBase);           
         end
-        function [Troof, Twall, Ta, qRadRoof, qRadWall] = simulateLumpedRoofUnitStep(obj)
+        function [Troof, Twall, Ta, qRadRoof, qRadWall] = simulateLRUS(obj)
             % simulates unit step response (unit step at top particle 
             % surface) with a lumped composite roof and radiation 
             % with the top particle surface and wall model
@@ -534,7 +534,7 @@ classdef Insulation < handle
                     obj.swr{i} = zeros(N, 1);
                 end
             end
-        end
+        end        
         function y = computeBaseSys(obj, u, Fo_)
             % computes the heat flux leaving the
             if nargin < 2, u = ones(2, 1); end
