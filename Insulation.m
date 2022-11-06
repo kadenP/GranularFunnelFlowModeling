@@ -13,6 +13,10 @@ classdef Insulation < handle
         dt              % (s) time-step
         ztop = 0.9      % nondimensional height of particles
         FoNow = 0       % current iteration non-dimensional time
+        zbar            % particle domain vertical mesh
+        rbar            % particle domain radial mesh
+        nzbar           % number of particle domain vertical mesh points
+        nrbar           % number of particle domain radial mesh points
         zbarW           % z-dimension vectors for composite wall
         rbarW           % r-dimension vectors for composite wall
         nzbarW          % number of nodes used in zbarW
@@ -117,7 +121,8 @@ classdef Insulation < handle
         qRadW       % (W) radiative heat flux into exposed wall
         Tp          % (K) averaged temp on particle surface
         % spatially resolved model solution matrices
-        thetaW          % composite wall solution/s        
+        thetaW          % composite wall solution/s 
+        thetaW1D        % 1D composite wall solutions
         thetaWIC        % IC contribution for thetaW
         thetaWBC        % BC contribution for thetaW
         gW1             % current inner wall boundary condition
@@ -126,12 +131,13 @@ classdef Insulation < handle
         KWI             % boundary contribution kernel integrand
         KW              % boundary contribution kernel
         IBCW = []       % stored inner wall boundary conditions, f(z, t)
-        rhoW            % composite wall initial condition        
+        rhoW            % composite wall initial condition  
+        rhoW1D          % 1D composite wall initial condition
         % spatially resolved model coefficients and eigenvalues
         AWm             % r-BVP boundary condition matrix
         bWm             % r eigenfunction coefficients (IC contribution)
         bWBCm           % r eigenfunction coefficients (BC contribution)
-        cWr             % lhs of reduced r-BVP boundary condition sysftem
+        cWr             % lhs of reduced r-BVP boundary condition system
         etaW            % r-BVP eigenvalues reduced for IC contribution
         betaW           % z-BVP eigenvalues reduced for IC contribution
         etaWN           % r-BVP norms
@@ -143,7 +149,7 @@ classdef Insulation < handle
         AWmStatic       % boundary condition matrix for etaWStatic
         bWmStatic       % r-BVP coefficients for etaWStatic
         GWCnm           % wall coefficients for IC contribution
-        GWCm            % 1D wall coefficients for IC contribution
+        CWm             % 1D wall coefficients
         GWBCCnm         % wall coefficients for BC contribution
         % other spatially resolved model parameters
         hcw = 1         % (W/m2-K) wall-particle boundary contact coefficient
@@ -153,23 +159,10 @@ classdef Insulation < handle
         Biw2            % biot number for outer-most composite layer         
         % conduction fourier summation parameters
         climW = 5e-6     % only fourier coefficients > clim are used
-        climWBC = 5e-6   % only fourier coefficients > clim are used
         cGetW            % index array for obtaining eigenvalues
-        cGetWBC          % index array for obtaining eigenvalues
-        pW = 2000        % total number of beta values computed
-        pWBC = 2000      % total number of beta values computed
-        pfW = 1000       % range for beta values to be computed
-        pfWBC = 1000     % range for beta values to be computed
-        qW = 2000        % total number of eta values computed
-        qWBC = 2000      % total number of eta values computed
-        qfW = 1000       % range for eta values to be computed
-        qfWBC = 1000     % range for eta values to be computed
-        niW = 50         % number of beta values used in computation of Cnm
-        niWBC = 50       % number of beta values used in computation of Cnm
-        niWBCtot = 10    % number of beta values used in summation
-        miW = 50         % number of eta values used in computation of Cnm
-        miWBC = 50       % number of eta values used in computation of Cnm
-        miWBCtot = 10    % number of eta values used in summation
+        qW = 10000        % total number of eta values computed
+        qfW = 9000       % range for eta values to be computed
+        miW = 6000       % number of eta values used in computation of Cnm
         % heat loss at domain boundaries
         qTopP           % (W/m2) heat loss from top of particle region
         qWall           % (W/m2) heat loss from wall composite layers
@@ -254,7 +247,7 @@ classdef Insulation < handle
                 obj.tEnd = 3600;
                 obj.FoEnd = obj.t2Fo(obj.tEnd);
             end
-            obj.Fo = linspace(0, obj.FoEnd, ceil(obj.FoEnd/obj.df));                           
+            obj.Fo = linspace(0, obj.FoEnd, ceil(obj.FoEnd/obj.df))';                           
         end  
         function reInitObj(obj)
             % scaling and property parameters
@@ -303,7 +296,7 @@ classdef Insulation < handle
                 obj.tEnd = 3600;
                 obj.FoEnd = obj.t2Fo(obj.tEnd);
             end
-            obj.Fo = linspace(0, obj.FoEnd, ceil(obj.FoEnd/obj.df));           
+            obj.Fo = linspace(0, obj.FoEnd, ceil(obj.FoEnd/obj.df))';           
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % general simulation functions
@@ -702,7 +695,7 @@ classdef Insulation < handle
             obj.tauAR = obj.Hp^2/(obj.alphapPacked*obj.CapAir{2}*obj.Rroof{N+2, 2});
             obj.tauAW = obj.Hp^2/(obj.alphapPacked*obj.CapAir{2}*obj.ResWA{M+2, 2});
             obj.tauAP = obj.Hp^2/(obj.alphapPacked*obj.CapAir{2}*obj.ResP{2});                                    
-        end
+        end 
         function setERMassMatrix(obj)
             N = size(obj.roofInsulation, 1); M = size(obj.wallInsulation, 1);
             obj.Mass = eye(N+M+1);
@@ -1173,6 +1166,216 @@ classdef Insulation < handle
                 1.051; 1.063; 1.075; 1.087; 1.099; 1.121; 1.142; 1.155; ...
                 1.173; 1.19; 1.204; 1.216]*10^3; %J/kgK
             obj.cA = interp1(T_, cp_, obj.theta2T(obj.thetaA));          
+        end        
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % 1D spatially resolved transient wall and particle model
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function computeCWP1D(obj, Fo_)
+            % computes the continuous 1D temperature solution in the wall
+            % with the particle domain either for a single timestep or for
+            % an entire time horizon (possible if the initial condition is
+            % trivial)
+            % initialize wall mesh and initial condition
+            buildWallCWP1D(obj);
+            % compute eigenvalues and coefficients
+            computeCWm(obj, 1);
+            % compute temperature distribution for all times in Fo_
+            M = size(obj.wallInsulation, 1);            
+            for i = 1:length(obj.CWm)                
+                for n = 1:M+1
+                    bWm_ = obj.bWm{i};
+                    if n == 1
+                        A = 1; B = 0; alpha_ = obj.alphapPacked;
+                    else
+                        A = bWm_(2*n-2); B = bWm_(2*n-1);
+                        alpha_ = [obj.wallInsulation{n-1, 3}]./ ...
+                                ([obj.wallInsulation{n-1, 4}].* ...
+                                [obj.wallInsulation{n-1, 5}]);
+                    end
+                    [x, y, xp, yp] = phiW(obj, obj.rbarW{n}, obj.etaW(i), alpha_);
+                    Rn = A*x + B*y;
+                    F = XWt(obj, Fo_, obj.etaW(i));
+                    obj.thetaW1D{n} = obj.thetaW1D{n} + obj.CWm(i)*F*Rn;                                                       
+                end                                
+            end            
+        end
+        function f = XWt(~, Fo_, eta_)
+            % transient component of analytic solutions
+            f = exp(-eta_^2*Fo_);
+        end
+        function [x, y, xp, yp] = phiW(obj, r_, eta_, alphai)
+            % r-dimension eigenfunctions with eigenvalue, eta_, and thermal
+            % diffusivity alpha_
+            x = besselj(0, sqrt(obj.alphapPacked/alphai)*eta_*r_); 
+            y = bessely(0, sqrt(obj.alphapPacked/alphai)*eta_*r_);
+            xp = -sqrt(obj.alphapPacked/alphai)*eta_.* ...
+                besselj(1, sqrt(obj.alphapPacked/alphai)*eta_*r_); 
+            yp = -sqrt(obj.alphapPacked/alphai)*eta_.* ...
+                bessely(1, sqrt(obj.alphapPacked/alphai)*eta_*r_);
+        end 
+        function ni = NWm(obj, eta_, bWm_)
+            % r-BVP eigenvalue problem norm
+            M = size(obj.wallInsulation, 1);
+            ri = unique([obj.wallInsulation{:, 2}])/obj.Hp;
+            alphai = [obj.wallInsulation{:, 3}]./ ...
+                ([obj.wallInsulation{:, 4}].*[obj.wallInsulation{:, 5}]);
+            ni = 0.5*obj.bp^2*(besselj(0, eta_*obj.bp)^2 + ...
+                                besselj(1, eta_*obj.bp)^2); 
+            for i = 2:M
+                A = bWm_(2*i-2); B = bWm_(2*i-1);
+                r1 = ri(i-1); r2 = ri(i); 
+                q1 = sqrt(obj.alphapPacked/alphai(i-1))*eta_*r1; 
+                q2 = q1*r2/r1;
+                ni = ni + 0.5*(r2^2*(A^2*besselj(0, q2)^2 + ...
+                        2*A*B*besselj(0, q2)*bessely(0, q2) + ...
+                        (A*besselj(1, q2) + B*bessely(1, q2))^2 + ...
+                        B^2*bessely(0, q2)^2) - ...
+                        r1^2*(A^2*besselj(0, q1)^2 + ...
+                        2*A*B*besselj(0, q1)*bessely(0, q1) + ...
+                        (A*besselj(1, q1) + B*bessely(1, q1))^2 + ...
+                        B^2*bessely(0, q1)^2));
+            end
+        end 
+        function zi = ZWm(obj, eta_)
+            % transcendental equation for finding r-dimension eigenvalues
+            [A, ~] = computeAWm(obj, eta_); zi = det(A);
+            if ~isreal(zi), zi = 1; end         
+        end
+        function [A, c] = computeAWm(obj, eta_)
+            % computes the r-BVP boundary condition matrix
+            M = size(obj.wallInsulation, 1);
+            A = zeros(2*M + 1);
+            c = zeros(2*M, 1);
+            ri = unique([obj.wallInsulation{:, 2}])/obj.Hp;
+            ki = [obj.wallInsulation{:, 3}];
+            rhoi = [obj.wallInsulation{:, 4}];
+            cpi = [obj.wallInsulation{:, 5}];
+            alphai = ki./(rhoi.*cpi);
+            % fill info for particle domain
+            [x1, ~, xp1, ~] = phiW(obj, ri(1), eta_, obj.alphapPacked);
+            [x2, y2, xp2, yp2] = phiW(obj, ri(1), eta_, alphai(1));
+            A(1:2, 1:3) = [x1, -x2, -y2; obj.kp*xp1, -ki(1)*xp2, -ki(1)*yp2];
+            c(1) = -x1; c(2) = -obj.kp*xp1;
+            % fill boundaries at composite connections
+            for i = 1:M-1
+                [x1, y1, xp1, yp1] = phiW(obj, ri(i+1), eta_, alphai(i));
+                [x2, y2, xp2, yp2] = phiW(obj, ri(i+1), eta_, alphai(i+1));
+                A(2*i+1:2*(i+1), 2*i:2*i+3) = [x1, y1, -x2, -y2; ...
+                     ki(i)*xp1, ki(i)*yp1, -ki(i+1)*xp2, -ki(i+1)*yp2];
+            end
+            % fill exterior surface boundary
+            [x, y, xp, yp] = phiW(obj, ri(end), eta_, alphai(M));
+            A(end, end-1:end) = [xp + obj.Biw2*x, yp + obj.Biw2*y];                        
+        end
+        function c = FourierCoefficientCWm(obj, eta_, bWm_)
+            Cnum = mean(mean(obj.rhoW1D{1}))*obj.b*besselj(1, eta_*obj.b)/eta_;
+            c = Cnum/NWm(obj, eta_, bWm_);                       
+        end
+        function computeEtaW(obj, ShowPlot)
+            % computes r-BVP eigenvalues, corresponding boundary
+            % condition matrices, and eigenfunction coefficients
+            interval = linspace(1, obj.qfW, obj.qW);   % interval/spacing 
+                                                     % of root calculation
+            rm = NaN*ones(obj.qW, 1);                 % roots initialization
+            options = optimset('TolX', 1e-15);
+            for i = 1:obj.qW
+                rm(i) = fzero(@(eta_) ZWm(obj, eta_), interval(i), options);
+            end
+            etaW_ = rm(diff(rm) > 1e-10);         % only keep unique roots
+            etaW_ = etaW_(etaW_ > 1e-10);   % remove zeros  
+            % save eta and eta dependencies for future reference
+            obj.etaWStatic = etaW_;
+            obj.etaW = etaW_;
+            obj.bWm = cell(length(obj.etaW), 1);
+%             obj.etaWN = obj.etaW;
+            for i = 1:length(obj.etaW)                            
+                [A_, c] = computeAWm(obj, obj.etaW(i));
+                b_ = A_(1:end-1, 2:end)\c;
+                obj.bWm{i} = [1; b_]; 
+%                 obj.etaWN(i) = NWm(obj, obj.etaW(i), obj.bWm{i});
+            end
+            % plot to check solutions
+            if nargin > 1 && ShowPlot
+                figure('Units', 'normalized', 'Position', [0 0 0.4 0.25]);
+                for i = 1:length(interval)
+                    plot(interval(i), ZWm(obj, interval(i)), '.k');
+                    hold on
+                end
+                for i = 1:length(obj.etaW)
+                    plot(obj.etaW(i), ZWm(obj, obj.etaW(i)), '.r');
+                end
+                xlabel('$\hat{\eta}$', 'interpreter', 'latex', 'FontSize', 14);
+                ylabel('$Z_m(\hat{\eta})$', 'interpreter', 'latex',...
+                    'FontSize', 14);
+                xlim([0, obj.qfW]);
+                hold off 
+            end    
+        end
+        function computeCWm(obj, ShowPlot)
+            % computes Fourier series coefficients for 1D continuous wall
+            % model
+            % compute eta values if not already populated
+            if isempty(obj.etaWStatic)
+                if nargin > 2 && ShowPlot
+                    computeEtaW(obj, true);
+                else
+                    computeEtaW(obj);
+                end     
+            end           
+            if obj.miW > length(obj.etaW) 
+                    miW_ = length(obj.etaW); 
+            else
+                    miW_ = obj.miW;
+            end
+            CmTemp = NaN*ones(miW_);
+            etaTemp = NaN*ones(miW_); 
+            bWmTemp = cell(miW_, 1);
+            for i = 1:miW_
+                CmTemp(i) = FourierCoefficientCWm(obj, obj.etaW(i), ...
+                                                            obj.bWm{i});
+                etaTemp(i) = obj.etaW(i);
+                bWmTemp{i} = obj.bWm{i};                                                
+            end
+            obj.cGetW = abs(CmTemp) > obj.climW;
+            obj.CWm = CmTemp(obj.cGetW);
+            obj.etaW = etaTemp(obj.cGetW);
+            obj.bWm = bWmTemp(obj.cGetW);
+            cGetIdx = find(obj.cGetW);
+            % plot to check solutions
+            if nargin > 1 && ShowPlot
+                figure('Units', 'normalized', ...
+                        'Position', [0 0 0.4 0.25], 'Visible', 'on');
+                Cget = zeros(length(obj.CWm), 1);
+                for i = 1:length(obj.CWm)
+                    Cget(i) = obj.CWm(i);                        
+                end
+                plot(cGetIdx, Cget, 'rx'); hold on;
+                idx = 1:length(CmTemp);
+                plot(idx, CmTemp, '-k')
+                legend('Used', 'Computed', 'interpreter', 'latex', ...
+                    'FontSize', 14, 'NumColumns', 2);
+                xlabel('$m$', 'interpreter', 'latex', 'FontSize', 14);
+                ylabel('$CW_{m}(\eta _m)$', 'interpreter', ...
+                    'latex', 'FontSize', 14);
+                xlim([0, miW_]);
+                hold off                 
+            end            
+        end
+        function buildWallCWP1D(obj)
+            % assembles wall parameters from the materials defined in
+            % wallInsulation
+            [obj.rbarW{1}, ~] = nodeGen(obj, [1e-3, obj.b], obj.nrbar);
+            obj.thetaW1D{1} = 0.1*ones(1, length(obj.rbarW{1}));
+            for i = 2:size(obj.wallInsulation, 1) + 1
+                [obj.rbarW{i}, ~] = nodeGen(obj, ...
+                    obj.wallInsulation{i-1, 2}./obj.Hp, obj.nrbarW{i-1});
+                obj.thetaW1D{i} = ...
+                    zeros(1, length(obj.rbarW{i}));
+            end
+            obj.Biw1 = obj.hcw*obj.Hp/obj.wallInsulation{1, 3};
+            obj.Biw1A = obj.hcwA*obj.Hp/obj.wallInsulation{1, 3};
+            obj.Biw2 = obj.hInf*obj.Hp/obj.wallInsulation{end, 3};
+            if isempty(obj.rhoW1D), obj.rhoW1D = obj.thetaW1D; end
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % conversions
@@ -1216,6 +1419,18 @@ classdef Insulation < handle
         end
         function qs = Q2qsR(obj, Q)
            qs = Q*obj.Hp^2/(obj.alphapPacked*obj.CapRoof{1, 2}*(obj.T0 - obj.Tinf));
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % general
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function [x, dx] = nodeGen(~, xlim, n)
+            % generates a set of n chebyshev nodes spaced between xlim(1)
+            % and xlim(2)
+%             r_ = (xlim(2) - xlim(1))/2; theta_ = linspace(pi, 0, n);
+%             x = xlim(1) + r_*(1 + cos(theta_));
+%             dx = (eye(n) - diag(ones(1, n-1), -1))*x'; dx = dx(2:end);
+              x = linspace(xlim(1), xlim(2), n);
+              dx = x(2) - x(1);
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % plotting and vizualization

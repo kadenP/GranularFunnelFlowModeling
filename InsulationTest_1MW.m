@@ -15,6 +15,10 @@ Ins.T0 = 800;
 Ins.thetaA = 0.5;
 Ins.H = 0.1;
 
+% set mesh parameters 
+Ins.nrbar = 100;
+Ins.nzbar = 100;
+
 %% compute heat transfer properties
 Ins.hInf = 10;   % (W/m2-K) heat transfer coefficient to ambient
 Ins.hcw = 10;     % (W/m2-K) contact resistance coefficient
@@ -88,21 +92,31 @@ Ins.roofInsulation{3, 5} = 500;
 
 %% Simulate simple step responses until s.s. is reached
 
+% % set timing parameters
+% Ins.df = Ins.t2Fo(10, 1);
+% Ins.FoEnd = Ins.t2Fo(3600*6, 1);
+% Ins.ztop = 0.8;
+% reInitObj(Ins);
+% 
+% % simulate wall step response
+% [Twall, qWall] = simulateLWUS(Ins);
+% 
+% % simulate base step response
+% [Tbase, qBase] = simulateLBUS(Ins);
+% 
+% % simulate roof step response
+% [Troof, TwallA, Ta, qRadRoof, qRadWall] = simulateLRUS(Ins);
+
+%% Simulate continuouse 1D wall model with particle domain
+
 % set timing parameters
 Ins.df = Ins.t2Fo(10, 1);
 Ins.FoEnd = Ins.t2Fo(3600*6, 1);
 Ins.ztop = 0.8;
 reInitObj(Ins);
 
-% simulate wall step response
-[Twall, qWall] = simulateLWUS(Ins);
-
-% simulate base step response
-[Tbase, qBase] = simulateLBUS(Ins);
-
-% simulate roof step response
-[Troof, TwallA, Ta, qRadRoof, qRadWall] = simulateLRUS(Ins);
-
+% simulate thermal decay in time
+computeCWP1D(Ins, Ins.Fo);
 
 
 
