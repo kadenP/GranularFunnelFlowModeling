@@ -110,12 +110,14 @@ Ins.roofInsulation{3, 5} = 500;
 %% Simulate continuouse 1D wall model with particle domain
 
 % set timing parameters
-Ins.df = Ins.t2Fo(10, 1);
-Ins.FoEnd = Ins.t2Fo(3600*6, 1);
+Ins.df = Ins.t2Fo(3600, 1);
+Ins.FoEnd = Ins.t2Fo(3600*24, 1);
 Ins.ztop = 0.8;
 reInitObj(Ins);
 
 % simulate thermal decay in time
+buildWallCWP1D(Ins);
+computeCWm(Ins, 1);
 computeCWP1D(Ins, Ins.Fo);
 
 

@@ -160,9 +160,9 @@ classdef Insulation < handle
         % conduction fourier summation parameters
         climW = 5e-6     % only fourier coefficients > clim are used
         cGetW            % index array for obtaining eigenvalues
-        qW = 10000        % total number of eta values computed
-        qfW = 9000       % range for eta values to be computed
-        miW = 6000       % number of eta values used in computation of Cnm
+        qW = 4000        % total number of eta values computed
+        qfW = 1000       % range for eta values to be computed
+        miW = 1000       % number of eta values used in computation of Cnm
         % heat loss at domain boundaries
         qTopP           % (W/m2) heat loss from top of particle region
         qWall           % (W/m2) heat loss from wall composite layers
@@ -1178,7 +1178,7 @@ classdef Insulation < handle
             % initialize wall mesh and initial condition
             buildWallCWP1D(obj);
             % compute eigenvalues and coefficients
-            computeCWm(obj, 1);
+            computeCWm(obj, 0);
             % compute temperature distribution for all times in Fo_
             M = size(obj.wallInsulation, 1);            
             for i = 1:length(obj.CWm)                
@@ -1192,7 +1192,7 @@ classdef Insulation < handle
                                 ([obj.wallInsulation{n-1, 4}].* ...
                                 [obj.wallInsulation{n-1, 5}]);
                     end
-                    [x, y, xp, yp] = phiW(obj, obj.rbarW{n}, obj.etaW(i), alpha_);
+                    [x, y, ~, ~] = phiW(obj, obj.rbarW{n}, obj.etaW(i), alpha_);
                     Rn = A*x + B*y;
                     F = XWt(obj, Fo_, obj.etaW(i));
                     obj.thetaW1D{n} = obj.thetaW1D{n} + obj.CWm(i)*F*Rn;                                                       
@@ -1252,15 +1252,17 @@ classdef Insulation < handle
             cpi = [obj.wallInsulation{:, 5}];
             alphai = ki./(rhoi.*cpi);
             % fill info for particle domain
+            Bic = obj.hcw*obj.Hp/obj.kp;
             [x1, ~, xp1, ~] = phiW(obj, ri(1), eta_, obj.alphapPacked);
             [x2, y2, xp2, yp2] = phiW(obj, ri(1), eta_, alphai(1));
-            A(1:2, 1:3) = [x1, -x2, -y2; obj.kp*xp1, -ki(1)*xp2, -ki(1)*yp2];
-            c(1) = -x1; c(2) = -obj.kp*xp1;
+            A(1:2, 1:3) = [xp1 + Bic*x1, -Bic*x2, -Bic*y2; obj.kp*xp1, -ki(1)*xp2, -ki(1)*yp2];
+            c(1) = -(xp1 + Bic*x1); c(2) = -obj.kp*xp1;
             % fill boundaries at composite connections
             for i = 1:M-1
+                Bic = 1e6;
                 [x1, y1, xp1, yp1] = phiW(obj, ri(i+1), eta_, alphai(i));
                 [x2, y2, xp2, yp2] = phiW(obj, ri(i+1), eta_, alphai(i+1));
-                A(2*i+1:2*(i+1), 2*i:2*i+3) = [x1, y1, -x2, -y2; ...
+                A(2*i+1:2*(i+1), 2*i:2*i+3) = [xp1 + Bic*x1, yp1 + Bic*y1, -Bic*x2, -Bic*y2; ...
                      ki(i)*xp1, ki(i)*yp1, -ki(i+1)*xp2, -ki(i+1)*yp2];
             end
             % fill exterior surface boundary
@@ -1274,7 +1276,7 @@ classdef Insulation < handle
         function computeEtaW(obj, ShowPlot)
             % computes r-BVP eigenvalues, corresponding boundary
             % condition matrices, and eigenfunction coefficients
-            interval = linspace(1, obj.qfW, obj.qW);   % interval/spacing 
+            interval = linspace(1e-7, obj.qfW, obj.qW);   % interval/spacing 
                                                      % of root calculation
             rm = NaN*ones(obj.qW, 1);                 % roots initialization
             options = optimset('TolX', 1e-15);
@@ -1365,17 +1367,18 @@ classdef Insulation < handle
             % assembles wall parameters from the materials defined in
             % wallInsulation
             [obj.rbarW{1}, ~] = nodeGen(obj, [1e-3, obj.b], obj.nrbar);
-            obj.thetaW1D{1} = 0.1*ones(1, length(obj.rbarW{1}));
+            obj.thetaW1D{1} = zeros(1, length(obj.rbarW{1}));
+            obj.rhoW1D{1} = ones(1, length(obj.rbarW{1}));
             for i = 2:size(obj.wallInsulation, 1) + 1
                 [obj.rbarW{i}, ~] = nodeGen(obj, ...
                     obj.wallInsulation{i-1, 2}./obj.Hp, obj.nrbarW{i-1});
                 obj.thetaW1D{i} = ...
                     zeros(1, length(obj.rbarW{i}));
+                obj.rhoW1D{i} = zeros(1, length(obj.rbarW{i}));
             end
             obj.Biw1 = obj.hcw*obj.Hp/obj.wallInsulation{1, 3};
             obj.Biw1A = obj.hcwA*obj.Hp/obj.wallInsulation{1, 3};
-            obj.Biw2 = obj.hInf*obj.Hp/obj.wallInsulation{end, 3};
-            if isempty(obj.rhoW1D), obj.rhoW1D = obj.thetaW1D; end
+            obj.Biw2 = obj.hInfp*obj.Hp/obj.wallInsulation{end, 3};
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % conversions
