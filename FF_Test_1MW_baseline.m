@@ -88,7 +88,7 @@ FF_test.miW = 400;      % number of eta values used in computation of Cnm
 FF_test.reInitObj;
 %% compute heat transfer properties
 FF_test.hInf = 10;   % (W/m2-K) heat transfer coefficient to ambient
-FF_test.hcw = 10;     % (W/m2-K) contact resistance coefficient
+FF_test.hcw = 50;     % (W/m2-K) contact resistance coefficient
 FF_test.hcwA = 10;     % (W/m2-K) contact resistance coefficient
 FF_test.kp = 0.4;      % (W/mK) see Baumann and Zunft
 
@@ -101,7 +101,8 @@ FF_test.wallInsulation{1, 2} = [2.25, 2.35]; % m
 FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
 FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
 FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
-FF_test.wallInsulation{1, 6} = 1;
+FF_test.wallInsulation{1, 6} = 100;             % number of lumped elements
+FF_test.wallInsulation{1, 7} = 25;           % W/m2K contact conductance
 
 FF_test.wallInsulation{2, 1} = 'skamolex';
 FF_test.nrbarW{2} = 100;
@@ -109,7 +110,8 @@ FF_test.wallInsulation{2, 2} = [2.35, 2.55]; % m
 FF_test.wallInsulation{2, 3} = 0.09;         % W/mK
 FF_test.wallInsulation{2, 4} = 245;          % kg/m3
 FF_test.wallInsulation{2, 5} = 840;          % J/kgK
-FF_test.wallInsulation{2, 6} = 1;
+FF_test.wallInsulation{2, 6} = 200;             % number of lumped elements
+FF_test.wallInsulation{2, 7} = 100;           % W/m2K contact conductance
 
 FF_test.wallInsulation{3, 1} = 'elmtherm';
 FF_test.nrbarW{3} = 50;
@@ -117,7 +119,8 @@ FF_test.wallInsulation{3, 2} = [2.55, 2.65];  % m
 FF_test.wallInsulation{3, 3} = 0.025;        % W/mK
 FF_test.wallInsulation{3, 4} = 270;          % kg/m3
 FF_test.wallInsulation{3, 5} = 1005;         % J/kgK
-FF_test.wallInsulation{3, 6} = 1;
+FF_test.wallInsulation{3, 6} = 100;             % number of lumped elements
+FF_test.wallInsulation{3, 7} = 100;           % W/m2K contact conductance
 
 FF_test.wallInsulation{4, 1} = 'ss304';
 FF_test.nrbarW{4} = 10;
@@ -125,42 +128,46 @@ FF_test.wallInsulation{4, 2} = [2.65, 2.65635]; % m
 FF_test.wallInsulation{4, 3} = 30;             % W/mK
 FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
 FF_test.wallInsulation{4, 5} = 500;            % J/kgK
-FF_test.wallInsulation{4, 6} = 1;
+FF_test.wallInsulation{4, 6} = 10;              % number of lumped elements
+FF_test.wallInsulation{4, 7} = 1000;           % W/m2K contact conductance
 
 % nutec block option
 % FF_test.wallInsulation{1, 1} = 'nutec';
 % FF_test.nrbarW{1} = 400;
-% FF_test.wallInsulation{1, 2} = [2.25, 2.6564]; % m
-% FF_test.wallInsulation{1, 3} = 0.22;             % W/mK
-% FF_test.wallInsulation{1, 4} = 160 ;           % kg/m3
-% FF_test.wallInsulation{1, 5} = 1130;           % J/kgK
-% FF_test.wallInsulation{1, 6} = 500;         % number of lumped volumes
+% FF_test.wallInsulation{1, 2} = [2.25, 2.6564];    % m
+% FF_test.wallInsulation{1, 3} = 0.22;              % W/mK
+% FF_test.wallInsulation{1, 4} = 160 ;              % kg/m3
+% FF_test.wallInsulation{1, 5} = 1130;              % J/kgK
+% FF_test.wallInsulation{1, 6} = 300;                   % number of lumped elements
+% FF_test.wallInsulation{1, 7} = 25;                    % W/m2K contact conductance
 % 
 % FF_test.wallInsulation{2, 1} = 'ss304';
 % FF_test.nrbarW{2} = 50;
-% FF_test.wallInsulation{2, 2} = [2.6564, 2.6627]; % m
-% FF_test.wallInsulation{2, 3} = 30;             % W/mK
-% FF_test.wallInsulation{2, 4} = 7700;           % kg/m3
-% FF_test.wallInsulation{2, 5} = 500;            % J/kgK
-% FF_test.wallInsulation{2, 6} = 10;             % number of lumped volumes
+% FF_test.wallInsulation{2, 2} = [2.6564, 2.6627];  % m
+% FF_test.wallInsulation{2, 3} = 30;                % W/mK
+% FF_test.wallInsulation{2, 4} = 7700;              % kg/m3
+% FF_test.wallInsulation{2, 5} = 500;               % J/kgK
+% FF_test.wallInsulation{2, 6} = 10;                    % number of lumped elements
+% FF_test.wallInsulation{2, 7} = 1000;                  % W/m2K contact conductance
 
 % set insulation specifications for bin base
 % new insulation configuration
 FF_test.baseInsulation{1, 1} = 'particles';
-FF_test.baseInsulation{1, 2} = [0, 0.05];
+FF_test.baseInsulation{1, 2} = [0, 0.1];
 FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
+FF_test.baseInsulation{1, 6} = 50;          % number of lumped elements
+FF_test.baseInsulation{1, 7} = 1;         % W/m2K contact conductance
+
 FF_test.baseInsulation{2, 1} = 'fondag';
-FF_test.baseInsulation{2, 2} = [0.05, 0.05+0.1905];
+FF_test.baseInsulation{2, 2} = [0.1, 0.1+0.1905];
 FF_test.baseInsulation{2, 3} = 1.75;          % W/mK
 FF_test.baseInsulation{2, 4} = 2210;          % kg/m3
 FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK
-% FF_test.baseInsulation{3, 1} = 'ss304';
-% FF_test.baseInsulation{3, 2} = [0.05+0.1905, 0.05+0.1905+0.0063];
-% FF_test.baseInsulation{3, 3} = 30;          % W/mK
-% FF_test.baseInsulation{3, 4} = 7700;        % kg/m3
-% FF_test.baseInsulation{3, 5} = 500;         % J/kgK
+FF_test.baseInsulation{2, 6} = 100;           % number of lumped elements
+FF_test.baseInsulation{2, 7} = 25;            % W/m2K contact conductance
+
 
 % set insulation specifications for bin top
 % new insulation configuration
@@ -257,26 +264,26 @@ FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*1, 1);
 
 FF_test.thetaFolder = 'thetaTest';
 FF_test.ls = 50;
-FF_test.ztop = 0.9;
+FF_test.ztop = 0.1;
 FF_test.reInitObj;
 FF_test.deltaM = 0.005;
 
-FF_test.tauW1 = FF_test.t2Fo(3600, 1);
+FF_test.tauW1 = FF_test.t2Fo(1e-10, 1);
 FF_test.thetaI = 0.9;
 
-for i = 1:length(FF_test.Fo)
-    FF_test.FoMode{1, i} = 'H';
-end
-
-% for i = 1:19
-%     FF_test.FoMode{1, i} = 'C';
-% end
-% for i = 19:49
+% for i = 1:length(FF_test.Fo)
 %     FF_test.FoMode{1, i} = 'H';
 % end
-% for i = 49:length(FF_test.Fo)
-%     FF_test.FoMode{1, i} = 'D';
-% end
+
+for i = 1:19
+    FF_test.FoMode{1, i} = 'C';
+end
+for i = 19:49
+    FF_test.FoMode{1, i} = 'H';
+end
+for i = 49:length(FF_test.Fo)
+    FF_test.FoMode{1, i} = 'D';
+end
 % for i = 76:94
 %     FF_test.FoMode{1, i} = 'C';
 % end

@@ -31,9 +31,11 @@ Ins.kp = 0.4;      % (W/mK) see Baumann and Zunft
 Ins.wallInsulation{1, 1} = 'particles';
 Ins.wallInsulation{1, 2} = [0.1, 2.25];
 Ins.wallInsulation{1, 3} = 0.4;          % W/mK
-Ins.wallInsulation{1, 4} = 2000;          % kg/m3
-Ins.wallInsulation{1, 5} = 1025.965;        % J/kgK
-Ins.wallInsulation{1, 6} = 1000;             % number of lumped elements
+Ins.wallInsulation{1, 4} = 2000;         % kg/m3
+Ins.wallInsulation{1, 5} = 1025.965;     % J/kgK
+Ins.wallInsulation{1, 6} = 1000;           % number of lumped elements
+Ins.wallInsulation{1, 7} = 1e10;         % W/m2K contact conductance
+Ins.wallInsulation{1, 8} = 1;            % nondimensional IC
 
 Ins.nzbarW = 1000;
 Ins.wallInsulation{2, 1} = 'tufcrete 47';
@@ -42,7 +44,9 @@ Ins.wallInsulation{2, 2} = [2.25, 2.35]; % m
 Ins.wallInsulation{2, 3} = 1.53;         % W/mK
 Ins.wallInsulation{2, 4} = 2210;         % kg/m3
 Ins.wallInsulation{2, 5} = 1175;         % J/kgK
-Ins.wallInsulation{2, 6} = 100;             % number of lumped elements
+Ins.wallInsulation{2, 6} = 100;            % number of lumped elements
+Ins.wallInsulation{2, 7} = 1e10;           % W/m2K contact conductance
+Ins.wallInsulation{2, 8} = 0;            % nondimensional IC
 
 Ins.wallInsulation{3, 1} = 'skamolex';
 Ins.nrbarW{2} = 500;
@@ -50,23 +54,29 @@ Ins.wallInsulation{3, 2} = [2.35, 2.55]; % m
 Ins.wallInsulation{3, 3} = 0.09;         % W/mK
 Ins.wallInsulation{3, 4} = 245;          % kg/m3
 Ins.wallInsulation{3, 5} = 840;          % J/kgK
-Ins.wallInsulation{3, 6} = 200;             % number of lumped elements
+Ins.wallInsulation{3, 6} = 200;           % number of lumped elements
+Ins.wallInsulation{3, 7} = 1e10;           % W/m2K contact conductance
+Ins.wallInsulation{3, 8} = 0;            % nondimensional IC
 
 Ins.wallInsulation{4, 1} = 'elmtherm';
 Ins.nrbarW{3} = 200;
 Ins.wallInsulation{4, 2} = [2.55, 2.65];  % m
-Ins.wallInsulation{4, 3} = 0.025;        % W/mK
-Ins.wallInsulation{4, 4} = 270;          % kg/m3
-Ins.wallInsulation{4, 5} = 1005;         % J/kgK
-Ins.wallInsulation{4, 6} = 100;             % number of lumped elements
+Ins.wallInsulation{4, 3} = 0.025;         % W/mK
+Ins.wallInsulation{4, 4} = 270;           % kg/m3
+Ins.wallInsulation{4, 5} = 1005;          % J/kgK
+Ins.wallInsulation{4, 6} = 1000;             % number of lumped elements
+Ins.wallInsulation{4, 7} = 1e10;            % W/m2K contact conductance
+Ins.wallInsulation{4, 8} = 0;            % nondimensional IC
 
 Ins.wallInsulation{5, 1} = 'ss304';
 Ins.nrbarW{4} = 50;
 Ins.wallInsulation{5, 2} = [2.65, 2.65635]; % m
-Ins.wallInsulation{5, 3} = 30;             % W/mK
-Ins.wallInsulation{5, 4} = 7700;           % kg/m3
-Ins.wallInsulation{5, 5} = 500;            % J/kgK
-Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
+Ins.wallInsulation{5, 3} = 30;              % W/mK
+Ins.wallInsulation{5, 4} = 7700;            % kg/m3
+Ins.wallInsulation{5, 5} = 500;             % J/kgK
+Ins.wallInsulation{5, 6} = 10;               % number of lumped elements
+Ins.wallInsulation{5, 7} = 1e10;              % W/m2K contact conductance
+Ins.wallInsulation{5, 8} = 0;            % nondimensional IC
 
 % without particle domain
 
@@ -78,6 +88,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{1, 4} = 2210;         % kg/m3
 % Ins.wallInsulation{1, 5} = 1175;         % J/kgK
 % Ins.wallInsulation{1, 6} = 100;             % number of lumped elements
+% Ins.wallInsulation{1, 7} = 25;           % W/m2K contact conductance
 % 
 % Ins.wallInsulation{2, 1} = 'skamolex';
 % Ins.nrbarW{2} = 500;
@@ -86,6 +97,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{2, 4} = 245;          % kg/m3
 % Ins.wallInsulation{2, 5} = 840;          % J/kgK
 % Ins.wallInsulation{2, 6} = 200;             % number of lumped elements
+% Ins.wallInsulation{2, 7} = 100;           % W/m2K contact conductance
 % 
 % Ins.wallInsulation{3, 1} = 'elmtherm';
 % Ins.nrbarW{3} = 200;
@@ -94,6 +106,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{3, 4} = 270;          % kg/m3
 % Ins.wallInsulation{3, 5} = 1005;         % J/kgK
 % Ins.wallInsulation{3, 6} = 100;             % number of lumped elements
+% Ins.wallInsulation{3, 7} = 100;           % W/m2K contact conductance
 % 
 % Ins.wallInsulation{4, 1} = 'ss304';
 % Ins.nrbarW{4} = 50;
@@ -102,6 +115,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{4, 4} = 7700;           % kg/m3
 % Ins.wallInsulation{4, 5} = 500;            % J/kgK
 % Ins.wallInsulation{4, 6} = 10;              % number of lumped elements
+% Ins.wallInsulation{4, 7} = 1000;           % W/m2K contact conductance
 
 % nutec block option
 % Ins.wallInsulation{1, 1} = 'particles';
@@ -110,6 +124,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{1, 4} = 2000;          % kg/m3
 % Ins.wallInsulation{1, 5} = 1025.965;        % J/kgK
 % Ins.wallInsulation{1, 6} = 1000;             % number of lumped elements
+% Ins.wallInsulation{1, 7} = 1e10;           % W/m2K contact conductance
 % 
 % Ins.wallInsulation{2, 1} = 'nutec';
 % Ins.nrbarW{1} = 400;
@@ -118,6 +133,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{2, 4} = 160 ;           % kg/m3
 % Ins.wallInsulation{2, 5} = 1130;           % J/kgK
 % Ins.wallInsulation{2, 6} = 300;             % number of lumped elements
+% Ins.wallInsulation{2, 7} = 25;           % W/m2K contact conductance
 % 
 % Ins.wallInsulation{3, 1} = 'ss304';
 % Ins.nrbarW{2} = 50;
@@ -126,6 +142,7 @@ Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 % Ins.wallInsulation{3, 4} = 7700;           % kg/m3
 % Ins.wallInsulation{3, 5} = 500;            % J/kgK
 % Ins.wallInsulation{3, 6} = 10;              % number of lumped elements
+% Ins.wallInsulation{3, 7} = 1000;           % W/m2K contact conductance
 
 % set insulation specifications for bin base
 Ins.baseInsulation{1, 1} = 'particles';
@@ -133,12 +150,18 @@ Ins.baseInsulation{1, 2} = [0, 0.1];
 Ins.baseInsulation{1, 3} = 0.4;          % W/mK
 Ins.baseInsulation{1, 4} = 2000;          % kg/m3
 Ins.baseInsulation{1, 5} = 1025.965;        % J/kgK
+Ins.baseInsulation{1, 6} = 200;          % number of lumped elements
+Ins.baseInsulation{1, 7} = 1e6;         % W/m2K contact conductance
+Ins.baseInsulation{1, 8} = 0;           % nondimensional IC
 
 Ins.baseInsulation{2, 1} = 'fondag';
 Ins.baseInsulation{2, 2} = [0.1, 0.1+0.1905];
 Ins.baseInsulation{2, 3} = 1.75;          % W/mK
 Ins.baseInsulation{2, 4} = 2210;          % kg/m3
 Ins.baseInsulation{2, 5} = 1046.7;        % J/kgK
+Ins.baseInsulation{2, 6} = 200;           % number of lumped elements
+Ins.baseInsulation{2, 7} = 25;            % W/m2K contact conductance
+Ins.baseInsulation{2, 8} = 0;             % nondimensional IC
 
 
 % set insulation specifications for bin top
