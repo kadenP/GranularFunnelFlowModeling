@@ -16,45 +16,116 @@ Ins.thetaA = 0.5;
 Ins.H = 0.1;
 
 % set mesh parameters 
-Ins.nrbar = 100;
+Ins.nrbar = 500;
 Ins.nzbar = 100;
 
 %% compute heat transfer properties
 Ins.hInf = 10;   % (W/m2-K) heat transfer coefficient to ambient
-Ins.hcw = 10;     % (W/m2-K) contact resistance coefficient
+Ins.hcw = 50;     % (W/m2-K) contact resistance coefficient
 Ins.hcwA = 10;     % (W/m2-K) contact resistance coefficient
 Ins.kp = 0.4;      % (W/mK) see Baumann and Zunft
 
 % set insulation specifications for bin wall
+
+% with particle domain
+Ins.wallInsulation{1, 1} = 'particles';
+Ins.wallInsulation{1, 2} = [0.1, 2.25];
+Ins.wallInsulation{1, 3} = 0.4;          % W/mK
+Ins.wallInsulation{1, 4} = 2000;          % kg/m3
+Ins.wallInsulation{1, 5} = 1025.965;        % J/kgK
+Ins.wallInsulation{1, 6} = 1000;             % number of lumped elements
+
 Ins.nzbarW = 1000;
-Ins.wallInsulation{1, 1} = 'tufcrete 47';
-Ins.nrbarW{1} = 100;
-Ins.wallInsulation{1, 2} = [2.25, 2.35]; % m
-Ins.wallInsulation{1, 3} = 1.53;         % W/mK
-Ins.wallInsulation{1, 4} = 2210;         % kg/m3
-Ins.wallInsulation{1, 5} = 1175;         % J/kgK
+Ins.wallInsulation{2, 1} = 'tufcrete 47';
+Ins.nrbarW{1} = 500;
+Ins.wallInsulation{2, 2} = [2.25, 2.35]; % m
+Ins.wallInsulation{2, 3} = 1.53;         % W/mK
+Ins.wallInsulation{2, 4} = 2210;         % kg/m3
+Ins.wallInsulation{2, 5} = 1175;         % J/kgK
+Ins.wallInsulation{2, 6} = 100;             % number of lumped elements
 
-Ins.wallInsulation{2, 1} = 'skamolex';
-Ins.nrbarW{2} = 100;
-Ins.wallInsulation{2, 2} = [2.35, 2.55]; % m
-Ins.wallInsulation{2, 3} = 0.09;         % W/mK
-Ins.wallInsulation{2, 4} = 245;          % kg/m3
-Ins.wallInsulation{2, 5} = 840;          % J/kgK
+Ins.wallInsulation{3, 1} = 'skamolex';
+Ins.nrbarW{2} = 500;
+Ins.wallInsulation{3, 2} = [2.35, 2.55]; % m
+Ins.wallInsulation{3, 3} = 0.09;         % W/mK
+Ins.wallInsulation{3, 4} = 245;          % kg/m3
+Ins.wallInsulation{3, 5} = 840;          % J/kgK
+Ins.wallInsulation{3, 6} = 200;             % number of lumped elements
 
-Ins.wallInsulation{3, 1} = 'elmtherm';
-Ins.nrbarW{3} = 50;
-Ins.wallInsulation{3, 2} = [2.55, 2.65];  % m
-Ins.wallInsulation{3, 3} = 0.025;        % W/mK
-Ins.wallInsulation{3, 4} = 270;          % kg/m3
-Ins.wallInsulation{3, 5} = 1005;         % J/kgK
+Ins.wallInsulation{4, 1} = 'elmtherm';
+Ins.nrbarW{3} = 200;
+Ins.wallInsulation{4, 2} = [2.55, 2.65];  % m
+Ins.wallInsulation{4, 3} = 0.025;        % W/mK
+Ins.wallInsulation{4, 4} = 270;          % kg/m3
+Ins.wallInsulation{4, 5} = 1005;         % J/kgK
+Ins.wallInsulation{4, 6} = 100;             % number of lumped elements
 
-Ins.wallInsulation{4, 1} = 'ss304';
-Ins.nrbarW{4} = 10;
-Ins.wallInsulation{4, 2} = [2.65, 2.65635]; % m
-Ins.wallInsulation{4, 3} = 30;             % W/mK
-Ins.wallInsulation{4, 4} = 7700;           % kg/m3
-Ins.wallInsulation{4, 5} = 500;            % J/kgK
+Ins.wallInsulation{5, 1} = 'ss304';
+Ins.nrbarW{4} = 50;
+Ins.wallInsulation{5, 2} = [2.65, 2.65635]; % m
+Ins.wallInsulation{5, 3} = 30;             % W/mK
+Ins.wallInsulation{5, 4} = 7700;           % kg/m3
+Ins.wallInsulation{5, 5} = 500;            % J/kgK
+Ins.wallInsulation{5, 6} = 10;              % number of lumped elements
 
+% without particle domain
+
+% Ins.nzbarW = 1000;
+% Ins.wallInsulation{1, 1} = 'tufcrete 47';
+% Ins.nrbarW{1} = 500;
+% Ins.wallInsulation{1, 2} = [2.25, 2.35]; % m
+% Ins.wallInsulation{1, 3} = 1.53;         % W/mK
+% Ins.wallInsulation{1, 4} = 2210;         % kg/m3
+% Ins.wallInsulation{1, 5} = 1175;         % J/kgK
+% Ins.wallInsulation{1, 6} = 100;             % number of lumped elements
+% 
+% Ins.wallInsulation{2, 1} = 'skamolex';
+% Ins.nrbarW{2} = 500;
+% Ins.wallInsulation{2, 2} = [2.35, 2.55]; % m
+% Ins.wallInsulation{2, 3} = 0.09;         % W/mK
+% Ins.wallInsulation{2, 4} = 245;          % kg/m3
+% Ins.wallInsulation{2, 5} = 840;          % J/kgK
+% Ins.wallInsulation{2, 6} = 200;             % number of lumped elements
+% 
+% Ins.wallInsulation{3, 1} = 'elmtherm';
+% Ins.nrbarW{3} = 200;
+% Ins.wallInsulation{3, 2} = [2.55, 2.65];  % m
+% Ins.wallInsulation{3, 3} = 0.025;        % W/mK
+% Ins.wallInsulation{3, 4} = 270;          % kg/m3
+% Ins.wallInsulation{3, 5} = 1005;         % J/kgK
+% Ins.wallInsulation{3, 6} = 100;             % number of lumped elements
+% 
+% Ins.wallInsulation{4, 1} = 'ss304';
+% Ins.nrbarW{4} = 50;
+% Ins.wallInsulation{4, 2} = [2.65, 2.65635]; % m
+% Ins.wallInsulation{4, 3} = 30;             % W/mK
+% Ins.wallInsulation{4, 4} = 7700;           % kg/m3
+% Ins.wallInsulation{4, 5} = 500;            % J/kgK
+% Ins.wallInsulation{4, 6} = 10;              % number of lumped elements
+
+% nutec block option
+% Ins.wallInsulation{1, 1} = 'particles';
+% Ins.wallInsulation{1, 2} = [0.1, 2.25];
+% Ins.wallInsulation{1, 3} = 0.4;          % W/mK
+% Ins.wallInsulation{1, 4} = 2000;          % kg/m3
+% Ins.wallInsulation{1, 5} = 1025.965;        % J/kgK
+% Ins.wallInsulation{1, 6} = 1000;             % number of lumped elements
+% 
+% Ins.wallInsulation{2, 1} = 'nutec';
+% Ins.nrbarW{1} = 400;
+% Ins.wallInsulation{2, 2} = [2.25, 2.6564]; % m
+% Ins.wallInsulation{2, 3} = 0.22;           % W/mK
+% Ins.wallInsulation{2, 4} = 160 ;           % kg/m3
+% Ins.wallInsulation{2, 5} = 1130;           % J/kgK
+% Ins.wallInsulation{2, 6} = 300;             % number of lumped elements
+% 
+% Ins.wallInsulation{3, 1} = 'ss304';
+% Ins.nrbarW{2} = 50;
+% Ins.wallInsulation{3, 2} = [2.6564, 2.6627]; % m
+% Ins.wallInsulation{3, 3} = 30;             % W/mK
+% Ins.wallInsulation{3, 4} = 7700;           % kg/m3
+% Ins.wallInsulation{3, 5} = 500;            % J/kgK
+% Ins.wallInsulation{3, 6} = 10;              % number of lumped elements
 
 % set insulation specifications for bin base
 Ins.baseInsulation{1, 1} = 'particles';
@@ -92,15 +163,15 @@ Ins.roofInsulation{3, 5} = 500;
 
 %% Simulate simple step responses until s.s. is reached
 
-% % set timing parameters
-% Ins.df = Ins.t2Fo(10, 1);
-% Ins.FoEnd = Ins.t2Fo(3600*6, 1);
-% Ins.ztop = 0.8;
-% reInitObj(Ins);
-% 
-% % simulate wall step response
-% [Twall, qWall] = simulateLWUS(Ins);
-% 
+% set timing parameters
+Ins.df = Ins.t2Fo(1200, 1);
+Ins.FoEnd = Ins.t2Fo(3600*24, 1);
+Ins.ztop = 0.8;
+reInitObj(Ins);
+
+% simulate wall step response
+[Twall, qWall] = simulateLWUS(Ins);
+
 % % simulate base step response
 % [Tbase, qBase] = simulateLBUS(Ins);
 % 
@@ -109,16 +180,16 @@ Ins.roofInsulation{3, 5} = 500;
 
 %% Simulate continuouse 1D wall model with particle domain
 
-% set timing parameters
-Ins.df = Ins.t2Fo(3600, 1);
-Ins.FoEnd = Ins.t2Fo(3600*24, 1);
-Ins.ztop = 0.8;
-reInitObj(Ins);
-
-% simulate thermal decay in time
-buildWallCWP1D(Ins);
-computeCWm(Ins, 1);
-computeCWP1D(Ins, Ins.Fo);
+% % set timing parameters
+% Ins.df = Ins.t2Fo(3600, 1);
+% Ins.FoEnd = Ins.t2Fo(3600*48, 1);
+% Ins.ztop = 0.8;
+% reInitObj(Ins);
+% 
+% % simulate thermal decay in time
+% buildWallCWP1D(Ins);
+% computeCWm(Ins, 1);
+% computeCWP1D(Ins, Ins.Fo);
 
 
 

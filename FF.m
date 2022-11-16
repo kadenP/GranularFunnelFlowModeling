@@ -134,6 +134,7 @@
         CapAir          % (J/K) thermal capacitance of internal air
         CapWA           % (J/K) cell array for capacitance of exposed wall
         thetaWall       % state variables for wall
+        rWL             % (m) radial mesh for discretized lumped wall
         thetaWA         % state variables for exposed wall
         thetaBase       % state variables for base
         thetaRoof       % state variables for top        
@@ -384,6 +385,7 @@
         Uinf = 0.02                 % bulk velocity at outlet  
         baseInsulation              % insulation info for base
         wallInsulation              % insulation info for wall
+        meshedWallInsulation        % meshed insulation info for wall
         roofInsulation              % insulation info for top of bin
         % nondimensional terms
         Bi1                 % Biot number at boundary 1
@@ -2218,12 +2220,12 @@
                 obj.Rbase{i, 1} = obj.baseInsulation{i, 1};
                 obj.CapBase{i, 1} = obj.baseInsulation{i, 1};
                 t = abs((obj.baseInsulation{i, 2}(2) - ...
-                                 obj.baseInsulation{i, 2}(1))); %*obj.H/obj.Hp;
+                                 obj.baseInsulation{i, 2}(1)));
                 k_ = obj.baseInsulation{i, 3};
                 rho_ = obj.baseInsulation{i, 4};
                 c_ = obj.baseInsulation{i, 5};
-                obj.Rbase{i, 2} = t/(pi*(obj.b*obj.Hp)^2*k_);
-                obj.CapBase{i, 2} = rho_*c_*t*pi*(obj.b*obj.Hp)^2;
+                obj.Rbase{i, 2} = t/(pi*(obj.bp*obj.Hp)^2*k_);
+                obj.CapBase{i, 2} = rho_*c_*t*pi*(obj.bp*obj.Hp)^2;
             end
             % convective resistance
             obj.Rbase{N + 1, 1} = 'convection';
@@ -2240,9 +2242,10 @@
                         [0, 1, -1], N, N)';
             obj.Bbase = zeros(N, 1); obj.Bbase(1) = obj.tauBase(1, 1);
             obj.Cbase = [zeros(1, N); eye(N)]; 
-            obj.Cbase(1) = -(obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
+            obj.Cbase(1, 1) = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
+            obj.Cbase(1, 2) = -(obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
             obj.Dbase = zeros(N+1, 1);
-            obj.Dbase(1) = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
+%             obj.Dbase(1) = (obj.T0 - obj.Tinf)/(obj.Rbase{1, 2}*pi*(obj.bp*obj.Hp)^2);
             obj.baseSys = ...
                 ss(full(obj.Abase), obj.Bbase, obj.Cbase, obj.Dbase); 
             % initialize state variables and boundary condition
@@ -2252,19 +2255,20 @@
         function initializeWallSys(obj, sensitivity)
             % computes the linear RC system for the storage tank base
             if nargin < 2, sensitivity = 0; end
-            N = size(obj.wallInsulation, 1); 
+            setLumpedWallMesh(obj);
+            N = size(obj.meshedWallInsulation, 1); 
             obj.Rwall = {}; obj.CapWall = {}; 
             w_ = zeros(N, 1);
             % insulation layer capacitance and resistance
             for i = 1:N
-                obj.Rwall{i, 1} = obj.wallInsulation{i, 1};
-                obj.CapWall{i, 1} = obj.wallInsulation{i, 1};
-                r1 = obj.wallInsulation{i, 2}(1); %*obj.H/obj.Hp;
-                r2 = obj.wallInsulation{i, 2}(2); %*obj.H/obj.Hp;
+                obj.Rwall{i, 1} = obj.meshedWallInsulation{i, 1};
+                obj.CapWall{i, 1} = obj.meshedWallInsulation{i, 1};
+                r1 = obj.meshedWallInsulation{i, 2}(1);
+                r2 = obj.meshedWallInsulation{i, 2}(2);
                 w_(i) = r2 - r1;
-                k_ = obj.wallInsulation{i, 3};
-                rho_ = obj.wallInsulation{i, 4};
-                c_ = obj.wallInsulation{i, 5};
+                k_ = obj.meshedWallInsulation{i, 3};
+                rho_ = obj.meshedWallInsulation{i, 4};
+                c_ = obj.meshedWallInsulation{i, 5};
                 obj.Rwall{i, 2} = log(r2/r1)/(2*pi*obj.Hp*k_);
                 obj.CapWall{i, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
             end
@@ -2284,13 +2288,22 @@
             obj.Bwall = zeros(N, 1); obj.Bwall(1) = obj.tauWall(1, 1);
             obj.Cwall = [zeros(N); eye(N)];
             for i = 1:N
-                obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
-                if i ~= 1
-                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                obj.Cwall(i, i) = (obj.T0 - obj.Tinf)/ ...
+                    (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                if i == N
+                    obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/ ...
+                    (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/ ...
+                        (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                else
+                    obj.Cwall(i, i) = (obj.T0 - obj.Tinf)/ ...
+                    (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i+1) = -(obj.T0 - obj.Tinf)/ ...
+                        (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
                 end
             end
             obj.Dwall = zeros(2*N, 1);
-            obj.Dwall(1) = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.bp*obj.Hp^2);
+%             obj.Dwall(1) = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.bp*obj.Hp^2);
             obj.wallSys = ...
                 ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);
             % initialize state variables and boundary condition   
@@ -2305,10 +2318,10 @@
                         if j == N + 1
                             obj.dTauwdr(i, j) = 0;
                         else
-                            ri = obj.wallInsulation{i, 2}(1);
-                            rip1 = obj.wallInsulation{i, 2}(2);
-                            rj = obj.wallInsulation{j, 2}(1);
-                            rjp1 = obj.wallInsulation{j, 2}(2);
+                            ri = obj.meshedWallInsulation{i, 2}(1);
+                            rip1 = obj.meshedWallInsulation{i, 2}(2);
+                            rj = obj.meshedWallInsulation{j, 2}(1);
+                            rjp1 = obj.meshedWallInsulation{j, 2}(2);
                             wSumi = obj.b*obj.Hp + sum(w_(1:i));
                             wSumj = obj.b*obj.Hp + sum(w_(1:j));
                             if i == 1
@@ -2321,9 +2334,9 @@
                             else
                                 wSumjm1 = obj.b*obj.Hp + sum(w_(1:j-1));
                             end
-                            kj = obj.wallInsulation{j, 3};
-                            rhoi = obj.wallInsulation{i, 4};
-                            ci = obj.wallInsulation{i, 5};
+                            kj = obj.meshedWallInsulation{j, 3};
+                            rhoi = obj.meshedWallInsulation{i, 4};
+                            ci = obj.meshedWallInsulation{i, 5};
                             if i == j
                                 obj.dTauwdr(i, j) = 2*obj.Hp^2*kj/ ...
                                     (rhoi*ci*obj.alphapPacked) ...
@@ -2350,9 +2363,9 @@
                     obj.dCwdr{i} = zeros(2*N, N);
                     obj.dDwdr{i} = zeros(2*N, 1);
                     for j = i:N
-                        kj = obj.wallInsulation{j, 3};
-                        rj = obj.wallInsulation{j, 2}(1);
-                        rjp1 = obj.wallInsulation{j, 2}(2);
+                        kj = obj.meshedWallInsulation{j, 3};
+                        rj = obj.meshedWallInsulation{j, 2}(1);
+                        rjp1 = obj.meshedWallInsulation{j, 2}(2);
                         if j == 1
                             obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
                                                obj.dTauwdr(j, j+1));
@@ -2396,17 +2409,17 @@
             if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
             y = lsim(obj.baseSys, u, Fo_, obj.thetaBase);
             obj.qLossB = y(end, 1); obj.thetaBase = y(end, 2:end);
-            obj.g2 = -y(end, 1)*obj.H/(obj.k*(obj.T0 - obj.Tinf));
+            obj.g2 = -obj.qLossB*obj.Hp/(obj.kp*(obj.T0 - obj.Tinf));
 %             obj.g2 = obj.g2*(1 - exp(-obj.FoNow./obj.tauW1));
         end
         function y = computeWallSys(obj, u, Fo_)
             % computes the heat flux leaving the wall
             if nargin < 2, u = ones(2, 1); end
             if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
-            N = size(obj.wallInsulation, 1);
+            N = size(obj.meshedWallInsulation, 1);
             y = lsim(obj.wallSys, u, Fo_, obj.thetaWall);
             obj.qLossW = y(end, 1); obj.thetaWall = y(end, N+1:end);
-            obj.g4 = y(end, 1)*obj.H/(obj.k*(obj.T0 - obj.Tinf));
+            obj.g4 = obj.qLossW*obj.Hp/(obj.kp*(obj.T0 - obj.Tinf));
 %             obj.g4 = obj.g4*(1 - exp(-obj.FoNow./obj.tauW1));
         end
         function y = computeWallSensitivityR(obj, u, yss, Fo_)
@@ -2466,6 +2479,32 @@
                 end
                y(i) = -Rtot^-2*(obj.T0 - obj.Tinf)*dRtotdwi;                 
             end
+        end
+        function setLumpedWallMesh(obj)
+            % adds discrete lumped elements for the wall model to increase
+            % spatial resolution
+            N = size(obj.wallInsulation, 1);
+            obj.meshedWallInsulation = {};
+            p_ = 1;
+            for i = 1:N
+                M = obj.wallInsulation{i, 6};
+                rmin = obj.wallInsulation{i, 2}(1);
+                rmax = obj.wallInsulation{i, 2}(2);
+                r_ = linspace(rmin, rmax, M+1);
+                for j = 1:M
+                    obj.meshedWallInsulation{p_, 1} = ...
+                        obj.wallInsulation{i, 1};
+                    obj.meshedWallInsulation{p_, 2} = [r_(j), r_(j+1)];
+                    obj.meshedWallInsulation{p_, 3} = ...
+                        obj.wallInsulation{i, 3};
+                    obj.meshedWallInsulation{p_, 4} = ...
+                        obj.wallInsulation{i, 4};
+                    obj.meshedWallInsulation{p_, 5} = ...
+                        obj.wallInsulation{i, 5};                    
+                    p_ = p_+1;
+                end             
+            end 
+            obj.rWL = unique(cell2mat(obj.meshedWallInsulation(:, 2)), 'sorted');
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % internal air and roof heat transfer functions
@@ -5723,6 +5762,69 @@
                 pause(rr);
             end
         end
+        function data = animateDiscreteParticleWallLine(obj, rr, plot_filename, zCoord, dimensions)
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'RadialLine.gif'; end  
+            if nargin < 4, zCoord = 0.1; end
+            if nargin < 5, dimensions = 1; end
+            data = {};
+            % wall temp animation for t1
+            figure('Units', 'normalized', 'color', 'white', ...
+                'Position', [0 0 0.5 0.3]);  
+            if length(obj.Fo) < obj.ls, loadTheta(obj, length(obj.Fo));  
+            else, loadTheta(obj, obj.ls); end
+            z_ = obj.theta{2, 2};
+            r_ = [obj.theta{2, 3}*obj.Hp, obj.rWL(2:end)'];
+            [~, zwi_] = min(abs(z_ - zCoord));
+            if dimensions
+                thetaLine = [obj.theta2T(obj.theta{2, 1}(zwi_, :)), ...
+                    obj.theta2T(obj.theta{2, 7})];
+            else
+                thetaLine = [obj.theta{2, 1}(zwi_, :), obj.theta{2, 7}];
+            end            
+            l1 = plot(r_, thetaLine, '-k', 'LineWidth', 2);
+            xlim([min(r_), max(r_)])           
+            timeTitle = title( ...
+                   sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+            xlabel('$r/H$', 'interpreter', 'latex', 'FontSize', 14);  
+            if dimensions
+%                 ylim([600, 800])
+                ylabel(sprintf('$T$($z/H$ = %1.2f) (degC)', zCoord), 'interpreter', 'latex', 'FontSize', 14);
+            else
+%                 ylim([0.6, 1])
+                ylabel(sprintf('$\theta$($z/H$ = %1.2f)', zCoord), 'interpreter', 'latex', 'FontSize', 14);
+            end
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            data{1, 1} = 0;     % (s) time
+            data{1, 2} = r_;
+            data{1, 3} = thetaLine;
+            gif(plot_filename, 'frame', gcf);
+            for k_ = 2:length(obj.Fo)
+                gif;
+                kk_ = mod(k_-1, obj.ls) + 1;
+                t_ = obj.Fo2t(obj.Fo(k_), 1);
+                if kk_ == 1 && k_ ~= length(obj.Fo)
+                    loadTheta(obj, k_+obj.ls-1);
+                end
+                z_ = obj.theta{kk_, 2};
+                r_ = [obj.theta{kk_, 3}*obj.Hp, obj.rWL(2:end)'];
+                [~, zwi_] = min(abs(z_ - zCoord));
+                if dimensions
+                    thetaLine = [obj.theta2T(obj.theta{kk_, 1}(zwi_, :)), ...
+                    obj.theta2T(obj.theta{kk_, 7})];   
+                else
+                    thetaLine = [obj.theta{kk_, 1}(zwi_, :), obj.theta{kk_, 7}];
+                end
+                timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
+                set(l1, 'XData', r_, 'YData', thetaLine);
+                data{k_, 1} = t_;
+                data{k_, 2} = r_;
+                data{k_, 3} = thetaLine;
+                pause(rr);
+            end
+        end  
         function data = animateVerticalTempLine(obj, rr, plot_filename, rCoord, dimensions)            
             if nargin < 2, rr = 0.5; end
             if nargin < 3, plot_filename = 'VerticalLine.gif'; end  
@@ -5836,9 +5938,9 @@
         function [f, t, wallTemps] = plotWallTemp(obj, prototype)
             % plots the transient temperature of each wall layer
             % load data
-            N = size(obj.wallInsulation, 1); % number of layers
+            N = size(obj.meshedWallInsulation, 1); % number of layers
             r_ = NaN*ones(N, 1);
-            for i = 1:N, r_(i) = obj.wallInsulation{i, 2}(2); end
+            for i = 1:N, r_(i) = obj.meshedWallInsulation{i, 2}(2); end
             thetaW_ = NaN*ones(length(obj.Fo), N);
             t = NaN*ones(length(obj.Fo), 1);
             for ii = 2:length(obj.Fo)                                      

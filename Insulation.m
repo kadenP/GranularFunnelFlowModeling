@@ -47,6 +47,8 @@ classdef Insulation < handle
         % insulation layer information
         baseInsulation              % insulation info for base
         wallInsulation              % insulation info for wall
+        meshedWallInsulation        % insulation info for discretized wall
+        rWL                         % (m) lumped radial mesh vector
         roofInsulation              % insulation info for top of bin
         % insulation layer resistance and lumped capacitance variables
         Rwall           % (K/W) cell array storing resistance of wall layers
@@ -158,11 +160,11 @@ classdef Insulation < handle
         Biw1A           % "" for tank air connection
         Biw2            % biot number for outer-most composite layer         
         % conduction fourier summation parameters
-        climW = 5e-6     % only fourier coefficients > clim are used
+        climW = 5e-3     % only fourier coefficients > clim are used
         cGetW            % index array for obtaining eigenvalues
-        qW = 4000        % total number of eta values computed
-        qfW = 1000       % range for eta values to be computed
-        miW = 1000       % number of eta values used in computation of Cnm
+        qW = 8000        % total number of eta values computed
+        qfW = 4000       % range for eta values to be computed
+        miW = 2000       % number of eta values used in computation of Cnm
         % heat loss at domain boundaries
         qTopP           % (W/m2) heat loss from top of particle region
         qWall           % (W/m2) heat loss from wall composite layers
@@ -303,13 +305,13 @@ classdef Insulation < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         function [Twall, qWall] = simulateLWUS(obj, u)
             % simulates step response with a lumped composite wall model
-            if nargin < 2, u = ones(size(obj.Fo)); end
-            N = size(obj.wallInsulation, 1);
+            if nargin < 2, u = ones(size(obj.Fo)); end           
             initializeWallSys(obj);
+            N = size(obj.meshedWallInsulation, 1);
             yWall = computeWallSys(obj, u, obj.Fo);
             obj.qWall = yWall(:, 1:N); qWall = obj.qWall;
             obj.qLossW = obj.qWall(:, 1);
-            obj.thetaWall = yWall(:, N+1:end); 
+            obj.thetaWall = [u, yWall(:, N+1:end)]; 
             Twall = obj.theta2T(obj.thetaWall);            
         end
         function [Tbase, qBase] = simulateLBUS(obj, u)
@@ -397,19 +399,20 @@ classdef Insulation < handle
         function initializeWallSys(obj, sensitivity)
             % computes the linear RC system for the storage tank base
             if nargin < 2, sensitivity = 0; end
-            N = size(obj.wallInsulation, 1); 
+            setLumpedWallMesh(obj);
+            N = size(obj.meshedWallInsulation, 1); 
             obj.Rwall = {}; obj.CapWall = {}; 
             w_ = zeros(N, 1);
             % insulation layer capacitance and resistance
             for i = 1:N
-                obj.Rwall{i, 1} = obj.wallInsulation{i, 1};
-                obj.CapWall{i, 1} = obj.wallInsulation{i, 1};
-                r1 = obj.wallInsulation{i, 2}(1); %*obj.H/obj.Hp;
-                r2 = obj.wallInsulation{i, 2}(2); %*obj.H/obj.Hp;
+                obj.Rwall{i, 1} = obj.meshedWallInsulation{i, 1};
+                obj.CapWall{i, 1} = obj.meshedWallInsulation{i, 1};
+                r1 = obj.meshedWallInsulation{i, 2}(1); %*obj.H/obj.Hp;
+                r2 = obj.meshedWallInsulation{i, 2}(2); %*obj.H/obj.Hp;
                 w_(i) = r2 - r1;
-                k_ = obj.wallInsulation{i, 3};
-                rho_ = obj.wallInsulation{i, 4};
-                c_ = obj.wallInsulation{i, 5};
+                k_ = obj.meshedWallInsulation{i, 3};
+                rho_ = obj.meshedWallInsulation{i, 4};
+                c_ = obj.meshedWallInsulation{i, 5};
                 obj.Rwall{i, 2} = log(r2/r1)/(2*pi*obj.Hp*k_);
                 obj.CapWall{i, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
             end
@@ -429,9 +432,11 @@ classdef Insulation < handle
             obj.Bwall = zeros(N, 1); obj.Bwall(1) = obj.tauWall(1, 1);
             obj.Cwall = [zeros(N); eye(N)];
             for i = 1:N
-                obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/ ...
+                    (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
                 if i ~= 1
-                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/(obj.Rwall{i, 2}*2*pi*obj.wallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/ ...
+                        (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
                 end
             end
             obj.Dwall = zeros(2*N, 1);
@@ -459,9 +464,9 @@ classdef Insulation < handle
                             else
                                 wSumjm1 = obj.b*obj.Hp + sum(w_(1:j-1));
                             end
-                            kj = obj.wallInsulation{j, 3};
-                            rhoi = obj.wallInsulation{i, 4};
-                            ci = obj.wallInsulation{i, 5};
+                            kj = obj.meshedWallInsulation{j, 3};
+                            rhoi = obj.meshedWallInsulation{i, 4};
+                            ci = obj.meshedWallInsulation{i, 5};
                             if i == j
                                 obj.dTauwdr(i, j) = 2*obj.Hp^2*kj/ ...
                                     (rhoi*ci*obj.alphapPacked) ...
@@ -488,9 +493,9 @@ classdef Insulation < handle
                     obj.dCwdr{i} = zeros(2*N, N);
                     obj.dDwdr{i} = zeros(2*N, 1);
                     for j = i:N
-                        kj = obj.wallInsulation{j, 3};
-                        rj = obj.wallInsulation{j, 2}(1);
-                        rjp1 = obj.wallInsulation{j, 2}(2);
+                        kj = obj.meshedWallInsulation{j, 3};
+                        rj = obj.meshedWallInsulation{j, 2}(1);
+                        rjp1 = obj.meshedWallInsulation{j, 2}(2);
                         if j == 1
                             obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
                                                obj.dTauwdr(j, j+1));
@@ -527,7 +532,144 @@ classdef Insulation < handle
                     obj.swr{i} = zeros(N, 1);
                 end
             end
-        end        
+        end  
+        function initializeWallParticleSys(obj, sensitivity)
+            % computes the linear RC system for the storage tank base
+            if nargin < 2, sensitivity = 0; end
+            setLumpedWallParticleMesh(obj);
+            N = size(obj.meshedWallInsulation, 1); 
+            obj.Rwall = {}; obj.CapWall = {}; 
+            w_ = zeros(N, 1);
+            % insulation layer capacitance and resistance
+            for i = 1:N
+                obj.Rwall{i, 1} = obj.meshedWallInsulation{i, 1};
+                obj.CapWall{i, 1} = obj.meshedWallInsulation{i, 1};
+                r1 = obj.meshedWallInsulation{i, 2}(1); %*obj.H/obj.Hp;
+                r2 = obj.meshedWallInsulation{i, 2}(2); %*obj.H/obj.Hp;
+                w_(i) = r2 - r1;
+                k_ = obj.meshedWallInsulation{i, 3};
+                rho_ = obj.meshedWallInsulation{i, 4};
+                c_ = obj.meshedWallInsulation{i, 5};
+                obj.Rwall{i, 2} = log(r2/r1)/(2*pi*obj.Hp*k_);
+                obj.CapWall{i, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
+            end
+            % convective resistance
+            obj.Rwall{N + 1, 1} = 'ambient convection';
+            obj.Rwall{N + 1, 2} = 1/(2*pi*r2*obj.Hp*obj.hInf);
+            % time constants
+            obj.tauWall = NaN*ones(N, 2);
+            obj.tauWall(:, 1) = obj.Hp^2./(obj.alphapPacked* ...
+                                [obj.CapWall{:, 2}].*[obj.Rwall{1:end-1, 2}]);
+            obj.tauWall(:, 2) = obj.Hp^2./(obj.alphapPacked* ...
+                                [obj.CapWall{:, 2}].*[obj.Rwall{2:end, 2}]);
+            % state-space system
+            obj.Awall = spdiags([-(obj.tauWall(:, 1) + obj.tauWall(:, 2)), ...
+                        obj.tauWall(:, 1), obj.tauWall(:, 2)], ...
+                        [0, 1, -1], N, N)';
+            obj.Bwall = zeros(N, 1); obj.Bwall(1) = obj.tauWall(1, 1);
+            obj.Cwall = [zeros(N); eye(N)];
+            for i = 1:N
+                obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/ ...
+                    (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                if i ~= 1
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/ ...
+                        (obj.Rwall{i, 2}*2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                end
+            end
+            obj.Dwall = zeros(2*N, 1);
+            obj.Dwall(1) = (obj.T0 - obj.Tinf)/(obj.Rwall{1, 2}*2*pi*obj.bp*obj.Hp^2);
+            obj.wallSys = ...
+                ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);
+            % construct sensitivity model
+            if sensitivity
+                % compute the set of non-dimensional time constant partials
+                obj.dTauwdr = zeros(N, N+1);
+                for i = 1:N
+                    for j = 1:i+1
+                        if j == N + 1
+                            obj.dTauwdr(i, j) = 0;
+                        else
+                            wSumi = obj.b*obj.Hp + sum(w_(1:i));
+                            wSumj = obj.b*obj.Hp + sum(w_(1:j));
+                            if i == 1
+                                wSumim1 = obj.b*obj.Hp;
+                            else
+                                wSumim1 = obj.b*obj.Hp + sum(w_(1:i-1));
+                            end
+                            if j == 1
+                                wSumjm1 = obj.b*obj.Hp;
+                            else
+                                wSumjm1 = obj.b*obj.Hp + sum(w_(1:j-1));
+                            end
+                            kj = obj.meshedWallInsulation{j, 3};
+                            rhoi = obj.meshedWallInsulation{i, 4};
+                            ci = obj.meshedWallInsulation{i, 5};
+                            if i == j
+                                obj.dTauwdr(i, j) = 2*obj.Hp^2*kj/ ...
+                                    (rhoi*ci*obj.alphapPacked) ...
+                                    *-2*wSumi*(wSumi^2 - wSumim1^2)^-2 ...
+                                    *(log(wSumj/wSumjm1))^-1 - 1/wSumj ...
+                                    *(log(wSumj/wSumjm1))^-2*(wSumi^2 - wSumim1^2)^-1;
+                            else
+                               obj.dTauwdr(i, j) = 2*obj.Hp^2*kj/ ...
+                                    (rhoi*ci*obj.alphapPacked) ...
+                                    *-2*wSumi*(wSumi^2 - wSumim1^2)^-2 ...
+                                    *(log(wSumj/wSumjm1))^-1; 
+                            end 
+                        end
+                    end
+                end
+                % compute sensitivity matrices
+                obj.dAwdr = cell(N, 1);
+                obj.dBwdr = cell(N, 1);
+                obj.dCwdr = cell(2*N, N);
+                obj.dDwdr = cell(2*N, 1);
+                for i = 1:N
+                    obj.dAwdr{i} = zeros(N);
+                    obj.dBwdr{i} = zeros(N, 1);
+                    obj.dCwdr{i} = zeros(2*N, N);
+                    obj.dDwdr{i} = zeros(2*N, 1);
+                    for j = i:N
+                        kj = obj.meshedWallInsulation{j, 3};
+                        rj = obj.meshedWallInsulation{j, 2}(1);
+                        rjp1 = obj.meshedWallInsulation{j, 2}(2);
+                        if j == 1
+                            obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
+                                               obj.dTauwdr(j, j+1));
+                            obj.dAwdr{i}(j, j+1) = obj.dTauwdr(j, j+1);
+                            obj.dBwdr{i}(j) = obj.dTauwdr(j, j);
+                            obj.dCwdr{i}(i, i) = kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                            obj.dDwdr{i}(i) = -kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                        elseif j == N
+                            obj.dAwdr{i}(j, j-1) = obj.dTauwdr(j, j);
+                            obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
+                                               obj.dTauwdr(j, j+1)); 
+                            obj.dCwdr{i}(j, j) = kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                            obj.dCwdr{i}(j, j-1) = -kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                        else
+                            obj.dAwdr{i}(j, j-1) = obj.dTauwdr(j, j);
+                            obj.dAwdr{i}(j, j) = -(obj.dTauwdr(j, j) + ...
+                                               obj.dTauwdr(j, j+1));                        
+                            obj.dAwdr{i}(j, j+1) = obj.dTauwdr(j, j+1); 
+                            obj.dCwdr{i}(j, j) = kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                            obj.dCwdr{i}(j, j-1) = -kj*(obj.T0 - obj.Tinf) ...
+                               /(rjp1*log(rjp1/rj)^2*obj.b*obj.Hp);
+                        end
+                    end
+                    A_ = full(obj.Awall);
+                    B_ = [obj.dBwdr{i}, obj.dAwdr{i}];
+                    C_ = obj.Cwall;
+                    D_ = [obj.dDwdr{i}, obj.dCwdr{i}];
+                    obj.swrSys{i} = ss(A_, B_, C_, D_);
+                    obj.swr{i} = zeros(N, 1);
+                end
+            end
+        end 
         function y = computeBaseSys(obj, u, Fo_)
             % computes the heat flux leaving the
             if nargin < 2, u = ones(2, 1); end
@@ -539,7 +681,7 @@ classdef Insulation < handle
             % computes the heat flux leaving the wall
             if nargin < 2, u = ones(2, 1); end
             if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
-            N = size(obj.wallInsulation, 1);
+            N = size(obj.meshedWallInsulation, 1);
             y = lsim(obj.wallSys, u, Fo_, obj.thetaWall);
             obj.qLossW = y(end, 1); obj.thetaWall = y(end, N+1:end);
         end
@@ -600,6 +742,68 @@ classdef Insulation < handle
                 end
                y(i) = -Rtot^-2*(obj.T0 - obj.Tinf)*dRtotdwi;                 
             end
+        end
+        function setLumpedWallMesh(obj)
+            % adds discrete lumped elements for the wall model to increase
+            % spatial resolution
+            N = size(obj.wallInsulation, 1);
+            obj.meshedWallInsulation = {};
+            p = 1;
+            for i = 1:N
+                M = obj.wallInsulation{i, 6};
+                rmin = obj.wallInsulation{i, 2}(1);
+                rmax = obj.wallInsulation{i, 2}(2);
+                r_ = linspace(rmin, rmax, M+1);
+                for j = 1:M
+                    obj.meshedWallInsulation{p, 1} = ...
+                        obj.wallInsulation{i, 1};
+                    obj.meshedWallInsulation{p, 2} = [r_(j), r_(j+1)];
+                    obj.meshedWallInsulation{p, 3} = ...
+                        obj.wallInsulation{i, 3};
+                    obj.meshedWallInsulation{p, 4} = ...
+                        obj.wallInsulation{i, 4};
+                    obj.meshedWallInsulation{p, 5} = ...
+                        obj.wallInsulation{i, 5};                    
+                    if strcmp(obj.meshedWallInsulation{p, 1}, 'particles')
+                        obj.thetaWall(p) = 1;
+                    else
+                        obj.thetaWall(p) = 0;
+                    end
+                    p = p+1;
+                end             
+            end 
+            obj.rWL = unique(cell2mat(obj.meshedWallInsulation(:, 2)), 'sorted');
+        end
+        function setLumpedWallParticleMesh(obj)
+            % adds discrete lumped elements for the wall model to increase
+            % spatial resolution
+            N = size(obj.wallInsulation, 1);
+            obj.meshedWallInsulation = {};
+            p = 1;
+            for i = 1:N
+                M = obj.wallInsulation{i, 6};
+                rmin = obj.wallInsulation{i, 2}(1);
+                rmax = obj.wallInsulation{i, 2}(2);
+                r_ = linspace(rmin, rmax, M+1);
+                for j = 1:M
+                    obj.meshedWallInsulation{p, 1} = ...
+                        obj.wallInsulation{i, 1};
+                    obj.meshedWallInsulation{p, 2} = [r_(j), r_(j+1)];
+                    obj.meshedWallInsulation{p, 3} = ...
+                        obj.wallInsulation{i, 3};
+                    obj.meshedWallInsulation{p, 4} = ...
+                        obj.wallInsulation{i, 4};
+                    obj.meshedWallInsulation{p, 5} = ...
+                        obj.wallInsulation{i, 5};                    
+                    if strcmp(obj.meshedWallInsulation{p, 1}, 'particles')
+                        obj.thetaWall(p) = 1;
+                    else
+                        obj.thetaWall(p) = 0;
+                    end
+                    p = p+1;
+                end             
+            end 
+            obj.rWL = unique(cell2mat(obj.meshedWallInsulation(:, 2)), 'sorted');
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % internal air and roof heat transfer functions
@@ -1259,7 +1463,7 @@ classdef Insulation < handle
             c(1) = -(xp1 + Bic*x1); c(2) = -obj.kp*xp1;
             % fill boundaries at composite connections
             for i = 1:M-1
-                Bic = 1e6;
+                Bic = obj.hcw*obj.Hp/ki(i);
                 [x1, y1, xp1, yp1] = phiW(obj, ri(i+1), eta_, alphai(i));
                 [x2, y2, xp2, yp2] = phiW(obj, ri(i+1), eta_, alphai(i+1));
                 A(2*i+1:2*(i+1), 2*i:2*i+3) = [xp1 + Bic*x1, yp1 + Bic*y1, -Bic*x2, -Bic*y2; ...
@@ -1438,6 +1642,103 @@ classdef Insulation < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % plotting and vizualization
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function animateRadialLine(obj, rr, plot_filename)
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'RadialLine.gif'; end
+            figure('Units', 'normalized', 'color', 'white', ...
+                'Position', [0 0 0.5 0.3]);
+            rw_ = []; thetaw_ = [];
+            for i = 1:length(obj.rbarW)
+                rw_ = [rw_, obj.rbarW{i}*obj.Hp]; 
+                thetaw_ = [thetaw_, obj.thetaW1D{i}(1, :)];
+            end
+            l1 = plot(rw_, obj.theta2T(thetaw_), '-k', 'LineWidth', 2);
+            xlim([min(rw_), max(rw_)])
+            ylim([0, 800])
+            timeTitle = title( ...
+                   sprintf('$t$ = %1.0f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+            xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...l
+                'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            gif(plot_filename, 'frame', gcf);
+            for k_ = 2:length(obj.Fo)
+                gif;
+                t_ = obj.Fo2t(obj.Fo(k_), 1);
+                thetaw_ = [];
+                for i = 1:length(obj.rbarW)
+                    thetaw_ = [thetaw_, obj.thetaW1D{i}(k_, :)];
+                end
+                timeTitle.String = sprintf('$t$ = %1.0f h', t_/3600);
+                set(l1, 'YData', obj.theta2T(thetaw_));
+                pause(rr);
+            end
+        end       
+        function data = animateDiscreteRadialLine(obj, rr, plot_filename)
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'RadialTempLine.gif'; end
+            data = cell(length(obj.Fo), 3);
+            figure('Units', 'normalized', 'color', 'white', ...
+                'Position', [0 0 0.5 0.3]);
+            data{1, 1} = 0;
+            data{1, 2} = obj.rWL;
+            data{1, 3} = obj.thetaWall(1, :);
+            l1 = plot(obj.rWL, obj.theta2T(obj.thetaWall(1, :)), '-k', 'LineWidth', 2);
+            xlim([min(obj.rWL), max(obj.rWL)])
+            ylim([0, 800])
+            timeTitle = title( ...
+                   sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+            xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...l
+                'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            gif(plot_filename, 'frame', gcf);
+            for k_ = 2:length(obj.Fo)
+                gif;
+                t_ = obj.Fo2t(obj.Fo(k_), 1);
+                timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
+                set(l1, 'YData', obj.theta2T(obj.thetaWall(k_, :)));
+                data{k_, 1} = t_;
+                data{k_, 2} = obj.rWL;
+                data{k_, 3} = obj.thetaWall(k_, :);
+                pause(rr);
+            end
+        end 
+        function data = compareRadialTemps(obj, rr, plot_filename, data1, data2, data1name, data2name)
+            if nargin < 2, rr = 0.5; end
+            if nargin < 3, plot_filename = 'RadialTempLine.gif'; end
+            data = cell(length(obj.Fo), 3);
+            figure('Units', 'normalized', 'color', 'white', ...
+                'Position', [0 0 0.5 0.3]);           
+            l1 = plot(data1{1, 2}, obj.theta2T(data1{1, 3}), '-k', 'LineWidth', 2);
+            hold on;
+            l2 = plot(data2{1, 2}, obj.theta2T(data2{1, 3}), '-r', 'LineWidth', 2);
+            xlim([min(obj.rWL), max(obj.rWL)])
+            ylim([0, 800])
+            legend('baseline', 'nutec option', 'interpreter', 'latex', 'FontSize', 14, 'Location', 'southwest');
+            timeTitle = title( ...
+                   sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+            xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
+            ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...l
+                'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            gif(plot_filename, 'frame', gcf);
+            for k_ = 2:size(data1, 1)
+                gif;
+                t_ = data1{k_, 1};
+                timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
+                set(l1, 'YData', obj.theta2T(data1{k_, 3}));
+                set(l1, 'XData', data1{k_, 2});
+                hold on;
+                set(l2, 'XData', data2{k_, 2});
+                set(l2, 'YData', obj.theta2T(data2{k_, 3}));
+                hold on;
+                pause(rr);
+            end
+        end
     end
 end
 

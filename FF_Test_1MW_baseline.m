@@ -101,35 +101,58 @@ FF_test.wallInsulation{1, 2} = [2.25, 2.35]; % m
 FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
 FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
 FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
+FF_test.wallInsulation{1, 6} = 1;
+
 FF_test.wallInsulation{2, 1} = 'skamolex';
 FF_test.nrbarW{2} = 100;
 FF_test.wallInsulation{2, 2} = [2.35, 2.55]; % m
 FF_test.wallInsulation{2, 3} = 0.09;         % W/mK
 FF_test.wallInsulation{2, 4} = 245;          % kg/m3
 FF_test.wallInsulation{2, 5} = 840;          % J/kgK
+FF_test.wallInsulation{2, 6} = 1;
+
 FF_test.wallInsulation{3, 1} = 'elmtherm';
 FF_test.nrbarW{3} = 50;
 FF_test.wallInsulation{3, 2} = [2.55, 2.65];  % m
 FF_test.wallInsulation{3, 3} = 0.025;        % W/mK
 FF_test.wallInsulation{3, 4} = 270;          % kg/m3
 FF_test.wallInsulation{3, 5} = 1005;         % J/kgK
+FF_test.wallInsulation{3, 6} = 1;
+
 FF_test.wallInsulation{4, 1} = 'ss304';
 FF_test.nrbarW{4} = 10;
 FF_test.wallInsulation{4, 2} = [2.65, 2.65635]; % m
 FF_test.wallInsulation{4, 3} = 30;             % W/mK
 FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
 FF_test.wallInsulation{4, 5} = 500;            % J/kgK
+FF_test.wallInsulation{4, 6} = 1;
 
+% nutec block option
+% FF_test.wallInsulation{1, 1} = 'nutec';
+% FF_test.nrbarW{1} = 400;
+% FF_test.wallInsulation{1, 2} = [2.25, 2.6564]; % m
+% FF_test.wallInsulation{1, 3} = 0.22;             % W/mK
+% FF_test.wallInsulation{1, 4} = 160 ;           % kg/m3
+% FF_test.wallInsulation{1, 5} = 1130;           % J/kgK
+% FF_test.wallInsulation{1, 6} = 500;         % number of lumped volumes
+% 
+% FF_test.wallInsulation{2, 1} = 'ss304';
+% FF_test.nrbarW{2} = 50;
+% FF_test.wallInsulation{2, 2} = [2.6564, 2.6627]; % m
+% FF_test.wallInsulation{2, 3} = 30;             % W/mK
+% FF_test.wallInsulation{2, 4} = 7700;           % kg/m3
+% FF_test.wallInsulation{2, 5} = 500;            % J/kgK
+% FF_test.wallInsulation{2, 6} = 10;             % number of lumped volumes
 
 % set insulation specifications for bin base
 % new insulation configuration
 FF_test.baseInsulation{1, 1} = 'particles';
-FF_test.baseInsulation{1, 2} = [0, 0.1];
+FF_test.baseInsulation{1, 2} = [0, 0.05];
 FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
 FF_test.baseInsulation{2, 1} = 'fondag';
-FF_test.baseInsulation{2, 2} = [0.1, 0.1+0.1905];
+FF_test.baseInsulation{2, 2} = [0.05, 0.05+0.1905];
 FF_test.baseInsulation{2, 3} = 1.75;          % W/mK
 FF_test.baseInsulation{2, 4} = 2210;          % kg/m3
 FF_test.baseInsulation{2, 5} = 1046.7;        % J/kgK
@@ -160,7 +183,7 @@ FF_test.roofInsulation{3, 4} = 7700;
 FF_test.roofInsulation{3, 5} = 500;
 
 % compute prototype overall heat transfer coefficients to surroundings
-computeUbase(FF_test); computeUwall(FF_test);
+% computeUbase(FF_test); computeUwall(FF_test);
 % initializeBaseSys(FF_test); initializeWallSys(FF_test);
 FF_test.hp1 = 5;
 FF_test.hp3 = 4;
@@ -225,25 +248,25 @@ testR = FF_test.r;
 
 % set timing parameters
 % FF_test.df = FF_test.t2Fo(1200, 1);
-% FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*4, 1);
+% FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*1, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*10, 1);
-FF_test.df = FF_test.t2Fo(600, 1);
-FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*2, 1);
+FF_test.df = FF_test.t2Fo(1200, 1);
+FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*1, 1);
 % FF_test.df = FF_test.t2Fo(1200, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*6, 1);
 
 FF_test.thetaFolder = 'thetaTest';
 FF_test.ls = 50;
-FF_test.ztop = 0.1;
+FF_test.ztop = 0.9;
 FF_test.reInitObj;
 FF_test.deltaM = 0.005;
 
 FF_test.tauW1 = FF_test.t2Fo(3600, 1);
 FF_test.thetaI = 0.9;
 
-% for i = 1:length(FF_test.Fo)
-%     FF_test.FoMode{1, i} = 'D';
-% end
+for i = 1:length(FF_test.Fo)
+    FF_test.FoMode{1, i} = 'H';
+end
 
 % for i = 1:19
 %     FF_test.FoMode{1, i} = 'C';
@@ -251,7 +274,7 @@ FF_test.thetaI = 0.9;
 % for i = 19:49
 %     FF_test.FoMode{1, i} = 'H';
 % end
-% for i = 49:76
+% for i = 49:length(FF_test.Fo)
 %     FF_test.FoMode{1, i} = 'D';
 % end
 % for i = 76:94
@@ -286,24 +309,27 @@ FF_test.thetaI = 0.9;
 %     FF_test.FoMode{1, i} = 'H';
 % end
 
-for i = 1:37
-    FF_test.FoMode{1, i} = 'C';
-end
-for i = 37:97
-    FF_test.FoMode{1, i} = 'H';
-end
-for i = 97:151
-    FF_test.FoMode{1, i} = 'D';
-end
-for i = 151:187
-    FF_test.FoMode{1, i} = 'C';
-end
-for i = 187:147
-    FF_test.FoMode{1, i} = 'H';
-end
-for i = 147:length(FF_test.FoMode)
-    FF_test.FoMode{1, i} = 'D';
-end
+% for i = 1:37
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 37:97
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 97:length(FF_test.Fo)
+%     FF_test.FoMode{1, i} = 'H';
+% end
+
+
+
+% for i = 145:181
+%     FF_test.FoMode{1, i} = 'C';
+% end
+% for i = 181:241
+%     FF_test.FoMode{1, i} = 'H';
+% end
+% for i = 241:length(FF_test.FoMode)
+%     FF_test.FoMode{1, i} = 'D';
+% end
 
 simulateStorageTheta(FF_test, 0, 0);
 
