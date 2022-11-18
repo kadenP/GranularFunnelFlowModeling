@@ -102,7 +102,7 @@ FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
 FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
 FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
 FF_test.wallInsulation{1, 6} = 100;             % number of lumped elements
-FF_test.wallInsulation{1, 7} = 25;           % W/m2K contact conductance
+FF_test.wallInsulation{1, 7} = 50;           % W/m2K contact conductance
 
 FF_test.wallInsulation{2, 1} = 'skamolex';
 FF_test.nrbarW{2} = 100;

@@ -321,6 +321,30 @@ classdef Insulation < handle
             obj.thetaWall = [u, yWall(:, N+1:end)]; 
             Twall = obj.theta2T(obj.thetaWall);            
         end
+        function [Twall, qWall] = simulateLPW(obj, u)
+            % simulates step response with a lumped composite wall model
+            if nargin < 2, u = ones(size(obj.Fo)); end           
+            initializeParticleWallSys(obj);
+            N = size(obj.meshedWallInsulation, 1);
+            yWall = computeWallSys(obj, u, obj.Fo);
+            obj.qWall = yWall(:, 1:N); qWall = obj.qWall;
+            obj.qLossW = obj.qWall(:, 1);
+            obj.thetaWall = yWall(:, N+1:end); 
+            Twall = obj.theta2T(obj.thetaWall);            
+        end
+        function [Twall, qWall] = simulateLPSSW(obj)
+            % simulates step response with a lumped composite wall model
+            if nargin < 2, u = ones(size(obj.Fo)); end           
+            initializeParticleSys(obj);
+            N = obj.nrbar;
+            yP = computeParticleSys(obj, u, obj.Fo);            
+            obj.qWall = yP(:, 1:N); qWall = obj.qWall;
+            obj.qLossW = obj.qWall(:, end);             
+            thetaW_ = computeSteadyStateWallTemps(obj, yP(:, end), ...
+                                      obj.qLossW*(2*pi*obj.bp*obj.Hp^2));
+            obj.thetaWall = [yP(:, N+1:end), thetaW_]; 
+            Twall = obj.theta2T(obj.thetaWall);            
+        end
         function [Tbase, qBase] = simulateLBUS(obj, u)
             % simulates step response with a lumped composite base model
             if nargin < 2, u = ones(size(obj.Fo)); end
@@ -488,6 +512,10 @@ classdef Insulation < handle
                         if j == N + 1
                             obj.dTauwdr(i, j) = 0;
                         else
+                            ri = obj.meshedWallInsulation{i, 2}(1);
+                            rip1 = obj.meshedWallInsulation{i, 2}(2);
+                            rj = obj.meshedWallInsulation{j, 2}(1);
+                            rjp1 = obj.meshedWallInsulation{j, 2}(2);
                             wSumi = obj.b*obj.Hp + sum(w_(1:i));
                             wSumj = obj.b*obj.Hp + sum(w_(1:j));
                             if i == 1
@@ -707,6 +735,236 @@ classdef Insulation < handle
                 end             
             end 
             obj.zBL = unique(cell2mat(obj.meshedBaseInsulation(:, 2)), 'sorted');
+        end
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % insulation model with transient particle domain
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        function initializeParticleWallSys(obj)
+            % initializes the RC system for the particles and wall
+            % insulation with an adiabatic centerline condition            
+            setLumpedParticleWallMesh(obj);
+            N = size(obj.meshedWallInsulation, 1); 
+            obj.Rwall = {}; obj.Rcw = {}; obj.CapWall = {}; 
+            w_ = zeros(N, 1);
+            % insulation layer capacitance and resistance
+            obj.Rcw{1, 1} = 'contact';
+            obj.Rwall{1, 1} = obj.meshedWallInsulation{1, 1};
+            obj.CapWall{1, 1} = obj.meshedWallInsulation{1, 1};
+            r1 = obj.meshedWallInsulation{1, 2}(1);
+            r2 = obj.meshedWallInsulation{1, 2}(2);
+            w_(1) = r2 - r1;
+            rho_ = obj.meshedWallInsulation{1, 4};
+            c_ = obj.meshedWallInsulation{1, 5};
+            obj.Rwall{1, 2} = NaN;
+            obj.Rcw{1, 2} = NaN;
+            obj.CapWall{1, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
+            for i = 2:N
+                obj.Rcw{i, 1} = 'contact';
+                obj.Rwall{i, 1} = obj.meshedWallInsulation{i, 1};
+                obj.CapWall{i, 1} = obj.meshedWallInsulation{i, 1};
+                r1 = obj.meshedWallInsulation{i, 2}(1);
+                r2 = obj.meshedWallInsulation{i, 2}(2);
+                w_(i) = r2 - r1;
+                k_ = obj.meshedWallInsulation{i, 3};
+                rho_ = obj.meshedWallInsulation{i, 4};
+                c_ = obj.meshedWallInsulation{i, 5};
+                hc_ = obj.meshedWallInsulation{i, 6};
+                obj.Rwall{i, 2} = log(r2/r1)/(2*pi*obj.Hp*k_);
+                obj.Rcw{i, 2} = 1/(2*pi*r1*obj.Hp*hc_);
+                obj.CapWall{i, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
+            end
+            % convective resistance
+            obj.Rcw{N + 1, 1} = 'no contact';
+            obj.Rcw{N + 1, 2} = 0;
+            obj.Rwall{N + 1, 1} = 'ambient convection';
+            obj.Rwall{N + 1, 2} = 1/(2*pi*r2*obj.Hp*obj.hInf);
+            % time constants
+            obj.tauWall = NaN*ones(N-1, 2);
+            obj.tauWall(:, 1) = obj.Hp^2./(obj.alphapPacked* ...
+                         [obj.CapWall{2:end, 2}].* ...
+                         ([obj.Rwall{2:end-1, 2}] + [obj.Rcw{2:end-1, 2}]));
+            obj.tauWall(:, 2) = obj.Hp^2./(obj.alphapPacked* ...
+                         [obj.CapWall{2:end, 2}].* ...
+                         ([obj.Rwall{3:end, 2}] + [obj.Rcw{3:end, 2}]));
+            % state-space system
+            obj.Awall = spdiags([-(obj.tauWall(:, 1) + obj.tauWall(:, 2)), ...
+                        obj.tauWall(:, 1), obj.tauWall(:, 2)], ...
+                        [0, 1, -1], N-1, N-1)';
+            obj.Awall = [zeros(N, 1), [zeros(1, N-1); obj.Awall]];
+            obj.Awall(2, 1) = obj.tauWall(1, 1);
+            obj.Awall(1, :) = obj.Awall(2, :);
+            obj.Bwall = zeros(N, 1);
+            obj.Cwall = [zeros(N); eye(N)];
+            for i = 1:N
+                if i == 1
+                    % no entry
+                elseif i == N
+                    obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/ ...
+                        ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/ ...
+                        ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                else
+                    obj.Cwall(i, i) = (obj.T0 - obj.Tinf)/ ...
+                        ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i+1) = (obj.T0 - obj.Tinf)/ ...
+                        ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                end
+            end
+            obj.Dwall = zeros(2*N, 1);
+            obj.wallSys = ...
+                ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);                        
+        end
+        
+        function initializeParticleSys(obj)
+            % initializes dynamic system for the particle domain with a
+            % steady state wall insulation model
+            setLumpedParticleWallMesh(obj);
+            N = size(obj.meshedWallInsulation, 1);
+            Np = obj.nrbar;
+            obj.Rwall = {}; obj.Rcw = {}; obj.CapWall = {}; 
+            w_ = zeros(N, 1);
+            % insulation layer capacitance and resistance
+            obj.Rcw{1, 1} = 'contact';
+            obj.Rwall{1, 1} = obj.meshedWallInsulation{1, 1};
+            obj.CapWall{1, 1} = obj.meshedWallInsulation{1, 1};
+            r1 = obj.meshedWallInsulation{1, 2}(1);
+            r2 = obj.meshedWallInsulation{1, 2}(2);
+            w_(1) = r2 - r1;
+            rho_ = obj.meshedWallInsulation{1, 4};
+            c_ = obj.meshedWallInsulation{1, 5};
+            obj.Rwall{1, 2} = NaN;
+            obj.Rcw{1, 2} = NaN;
+            obj.CapWall{1, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
+            for i = 2:N
+                obj.Rcw{i, 1} = 'contact';
+                obj.Rwall{i, 1} = obj.meshedWallInsulation{i, 1};
+                obj.CapWall{i, 1} = obj.meshedWallInsulation{i, 1};
+                r1 = obj.meshedWallInsulation{i, 2}(1);
+                r2 = obj.meshedWallInsulation{i, 2}(2);
+                w_(i) = r2 - r1;
+                k_ = obj.meshedWallInsulation{i, 3};
+                rho_ = obj.meshedWallInsulation{i, 4};
+                c_ = obj.meshedWallInsulation{i, 5};
+                hc_ = obj.meshedWallInsulation{i, 6};
+                obj.Rwall{i, 2} = log(r2/r1)/(2*pi*obj.Hp*k_);
+                obj.Rcw{i, 2} = 1/(2*pi*r1*obj.Hp*hc_);
+                obj.CapWall{i, 2} = rho_*c_*obj.Hp*pi*(r2^2 - r1^2);
+            end
+            % convective resistance
+            obj.Rcw{N + 1, 1} = 'no contact';
+            obj.Rcw{N + 1, 2} = 0;
+            obj.Rwall{N + 1, 1} = 'ambient convection';
+            obj.Rwall{N + 1, 2} = 1/(2*pi*r2*obj.Hp*obj.hInf);
+            % construct set of particle data and ss overall convection model
+            Rp_ = obj.Rwall(1:Np, :);
+            Cp_ = obj.CapWall(1:Np, :);
+            Rtot_ = sum([obj.Rwall{Np+1:end, 2}] + [obj.Rcw{Np+1:end, 2}]);
+            Rp_{Np+1, 1} = 'overall convection coefficient';
+            Rp_{Np+1, 2} = Rtot_;                       
+            % time constants
+            obj.tauWall = NaN*ones(Np-1, 2);
+            obj.tauWall(:, 1) = obj.Hp^2./(obj.alphapPacked* ...
+                         [Cp_{2:end, 2}].*[Rp_{2:end-1, 2}]);
+            obj.tauWall(:, 2) = obj.Hp^2./(obj.alphapPacked* ...
+                         [Cp_{2:end, 2}].*[Rp_{3:end, 2}]);
+            % state-space system
+            obj.Awall = spdiags([-(obj.tauWall(:, 1) + obj.tauWall(:, 2)), ...
+                        obj.tauWall(:, 1), obj.tauWall(:, 2)], ...
+                        [0, 1, -1], Np-1, Np-1)';
+            obj.Awall = [zeros(Np, 1), [zeros(1, Np-1); obj.Awall]];
+            obj.Awall(2, 1) = obj.tauWall(1, 1);
+            obj.Awall(1, :) = obj.Awall(2, :);
+            obj.Bwall = zeros(Np, 1);
+            obj.Cwall = [zeros(Np); eye(Np)];
+            for i = 1:Np
+                if i == 1
+                    % no entry
+                elseif i == Np
+                    obj.Cwall(i, i) = -(obj.T0 - obj.Tinf)/(Rp_{i, 2} ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i-1) = (obj.T0 - obj.Tinf)/(Rp_{i, 2} ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                else
+                    obj.Cwall(i, i) = (obj.T0 - obj.Tinf)/(Rp_{i, 2} ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                    obj.Cwall(i, i+1) = -(obj.T0 - obj.Tinf)/(Rp_{i, 2} ...
+                        *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
+                end
+            end
+            obj.Dwall = zeros(2*Np, 1);
+            obj.wallSys = ...
+                ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);           
+        end
+        function y = computeParticleSys(obj, u, Fo_)
+            % computes the heat flux leaving the wall
+            if nargin < 2, u = ones(2, 1); end
+            if nargin < 3, Fo_ = linspace(0, obj.df, length(u)); end
+            N = obj.nrbar;
+            y = lsim(obj.wallSys, u, Fo_, obj.thetaWall(1:N));
+            obj.qLossW = y(end, 1); obj.thetaWall = y(end, N+1:end);
+        end
+        function thetaW_ = computeSteadyStateWallTemps(obj, thetaP, qW)
+            % computes the algebraic steady-state wall temps from the
+            % transient particle temperatures
+            N = size(obj.meshedWallInsulation, 1) - obj.nrbar;
+            Np = obj.nrbar;
+            thetaW_ = zeros(length(qW), N);
+            thetaW_(2:end, 1) = thetaP(2:end) - qW(2:end)*(obj.Rwall{1+Np, 2} + ...
+                                  obj.Rcw{1+Np, 2})/(obj.T0 - obj.Tinf);
+            for i = 2:N
+                thetaW_(2:end, i) = thetaW_(2:end, i-1) - ...
+                                    qW(2:end)*(obj.Rwall{i+Np, 2} + ...
+                                    obj.Rcw{i+Np, 2})/(obj.T0 - obj.Tinf);                                
+            end 
+        end
+        function setLumpedParticleWallMesh(obj)
+            % generates a mesh for the particle domain and the specified
+            % wall insulation layers
+            N = size(obj.wallInsulation, 1);
+            obj.meshedWallInsulation = {};
+            % set particle mesh
+            r_ = linspace(0, obj.b*obj.Hp, obj.nrbar+1);
+            for j = 1:obj.nrbar
+                obj.meshedWallInsulation{j, 1} = 'particles';
+                obj.meshedWallInsulation{j, 2} = [r_(j), r_(j+1)];
+                obj.meshedWallInsulation{j, 3} = obj.kp;
+                obj.meshedWallInsulation{j, 4} = obj.rhopPack;
+                obj.meshedWallInsulation{j, 5} = obj.cpp;
+                obj.meshedWallInsulation{j, 6} = 1e16;
+                obj.thetaWall(j) = 1;                                
+            end
+            p = obj.nrbar+1;
+            for i = 1:N
+                M = obj.wallInsulation{i, 6};
+                rmin = obj.wallInsulation{i, 2}(1);
+                rmax = obj.wallInsulation{i, 2}(2);
+                r_ = linspace(rmin, rmax, M+1);
+                for j = 1:M
+                    obj.meshedWallInsulation{p, 1} = ...
+                        obj.wallInsulation{i, 1};
+                    obj.meshedWallInsulation{p, 2} = [r_(j), r_(j+1)];
+                    obj.meshedWallInsulation{p, 3} = ...
+                        obj.wallInsulation{i, 3};
+                    obj.meshedWallInsulation{p, 4} = ...
+                        obj.wallInsulation{i, 4};
+                    obj.meshedWallInsulation{p, 5} = ...
+                        obj.wallInsulation{i, 5};
+                    if j == 1
+                        obj.meshedWallInsulation{p, 6} = ...
+                        obj.wallInsulation{i, 7};
+                    else
+                        obj.meshedWallInsulation{p, 6} = 1e16;
+                    end
+                    obj.thetaWall(p) = obj.wallInsulation{i, 8};
+                    p = p+1;
+                end             
+            end 
+            obj.rWL = unique(cell2mat(obj.meshedWallInsulation(:, 2)), 'sorted');
+            obj.rWL = obj.rWL(1:end-2);
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % internal air and roof heat transfer functions
