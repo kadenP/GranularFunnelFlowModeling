@@ -321,9 +321,9 @@ classdef Insulation < handle
             obj.thetaWall = [u, yWall(:, N+1:end)]; 
             Twall = obj.theta2T(obj.thetaWall);            
         end
-        function [Twall, qWall] = simulateLPW(obj, u)
+        function [Twall, qWall] = simulateLPW(obj)
             % simulates step response with a lumped composite wall model
-            if nargin < 2, u = ones(size(obj.Fo)); end           
+            u = zeros(size(obj.Fo));          
             initializeParticleWallSys(obj);
             N = size(obj.meshedWallInsulation, 1);
             yWall = computeWallSys(obj, u, obj.Fo);
@@ -338,10 +338,11 @@ classdef Insulation < handle
             initializeParticleSys(obj);
             N = obj.nrbar;
             yP = computeParticleSys(obj, u, obj.Fo);            
-            obj.qWall = yP(:, 1:N); qWall = obj.qWall;
+            obj.qWall = yP(:, 1:N);
             obj.qLossW = obj.qWall(:, end);             
-            thetaW_ = computeSteadyStateWallTemps(obj, yP(:, end), ...
+            [thetaW_, qW_] = computeSteadyStateWallTQ(obj, yP(:, end), ...
                                       obj.qLossW*(2*pi*obj.bp*obj.Hp^2));
+            qWall = [obj.qWall, qW_];
             obj.thetaWall = [yP(:, N+1:end), thetaW_]; 
             Twall = obj.theta2T(obj.thetaWall);            
         end
@@ -355,6 +356,25 @@ classdef Insulation < handle
             obj.qLossB = obj.qBase(:, 1);
             obj.thetaBase = yBase(:, N+1:end); 
             Tbase = obj.theta2T(obj.thetaBase);           
+        end
+        function [Twall, qWall, Tsswall, qssWall, e, r, t] = simulateLPSSWerror(obj, ShowPlot)
+            % simulates the lumped transient wall model and steady state
+            % wall model and computes the error according to the transient
+            % baseline
+            if nargin < 2, ShowPlot = 0; end
+            [Twall, qWall] = simulateLPW(obj);
+            data1 = animateDiscreteRadialLine(obj, 0.5, '', 0);
+            [Tsswall, qssWall] = simulateLPSSW(obj);
+            data2 = animateDiscreteRadialLine(obj, 0.5, '', 0);
+            t = [data1{:, 1}]; r = data1{1, 2};
+            [eT, eq] = plotSteadyStateModelError(obj, Twall, Tsswall, ...
+                                           qWall, qssWall, t, r, ShowPlot);
+            e = [eT, eq];
+            if ShowPlot
+                compareRadialTemps(obj, data1, data2, 0.5, ...
+                        'ssRadialLineComp.gif', 'Transient Wall', ...
+                        'Steady-State Wall');
+            end            
         end
         function [Troof, Twall, Ta, qRadRoof, qRadWall] = simulateLRUS(obj)
             % simulates unit step response (unit step at top particle 
@@ -809,7 +829,7 @@ classdef Insulation < handle
                     obj.Cwall(i, i) = (obj.T0 - obj.Tinf)/ ...
                         ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
                         *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
-                    obj.Cwall(i, i+1) = (obj.T0 - obj.Tinf)/ ...
+                    obj.Cwall(i, i+1) = -(obj.T0 - obj.Tinf)/ ...
                         ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
                         *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
                 end
@@ -907,18 +927,21 @@ classdef Insulation < handle
             y = lsim(obj.wallSys, u, Fo_, obj.thetaWall(1:N));
             obj.qLossW = y(end, 1); obj.thetaWall = y(end, N+1:end);
         end
-        function thetaW_ = computeSteadyStateWallTemps(obj, thetaP, qW)
+        function [thetaW_, qWall_] = computeSteadyStateWallTQ(obj, thetaP, qW)
             % computes the algebraic steady-state wall temps from the
             % transient particle temperatures
             N = size(obj.meshedWallInsulation, 1) - obj.nrbar;
             Np = obj.nrbar;
             thetaW_ = zeros(length(qW), N);
+            qWall_ = zeros(length(qW), N);
             thetaW_(2:end, 1) = thetaP(2:end) - qW(2:end)*(obj.Rwall{1+Np, 2} + ...
                                   obj.Rcw{1+Np, 2})/(obj.T0 - obj.Tinf);
+            qWall_(:, 1) = qW/(2*pi*obj.rWL(Np+1));
             for i = 2:N
                 thetaW_(2:end, i) = thetaW_(2:end, i-1) - ...
                                     qW(2:end)*(obj.Rwall{i+Np, 2} + ...
-                                    obj.Rcw{i+Np, 2})/(obj.T0 - obj.Tinf);                                
+                                    obj.Rcw{i+Np, 2})/(obj.T0 - obj.Tinf);
+                qWall_(:, i) = qW/(2*pi*obj.rWL(Np+i));
             end 
         end
         function setLumpedParticleWallMesh(obj)
@@ -1836,40 +1859,66 @@ classdef Insulation < handle
                 pause(rr);
             end
         end       
-        function data = animateDiscreteRadialLine(obj, rr, plot_filename)
+        function data = animateDiscreteRadialLine(obj, rr, plot_filename, ShowPlot)
             if nargin < 2, rr = 0.5; end
             if nargin < 3, plot_filename = 'RadialTempLine.gif'; end
+            if nargin < 4, ShowPlot = 1; end
             data = cell(length(obj.Fo), 3);
-            figure('Units', 'normalized', 'color', 'white', ...
-                'Position', [0 0 0.5 0.3]);
             data{1, 1} = 0;
             data{1, 2} = obj.rWL;
             data{1, 3} = obj.thetaWall(1, :);
-            l1 = plot(obj.rWL, obj.theta2T(obj.thetaWall(1, :)), '-k', 'LineWidth', 2);
-            xlim([min(obj.rWL), max(obj.rWL)])
-            ylim([0, 800])
-            timeTitle = title( ...
-                   sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
-            xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
-            ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
-            set(gca, 'box', 'off', 'TickDir', 'both', ...
-                'TickLength', [0.01, 0.025], ...l
-                'TickLabelInterpreter', 'latex', 'FontSize', 12)
-            gif(plot_filename, 'frame', gcf);
+            if ShowPlot
+                figure('Units', 'normalized', 'color', 'white', ...
+                    'Position', [0 0 0.5 0.3]);            
+                l1 = plot(obj.rWL, obj.theta2T(obj.thetaWall(1, :)), '-k', 'LineWidth', 2);
+                xlim([min(obj.rWL), max(obj.rWL)])
+                ylim([0, 800])
+                timeTitle = title( ...
+                       sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
+                xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
+                ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
+                set(gca, 'box', 'off', 'TickDir', 'both', ...
+                    'TickLength', [0.01, 0.025], ...l
+                    'TickLabelInterpreter', 'latex', 'FontSize', 12)
+                gif(plot_filename, 'frame', gcf);
+            end
             for k_ = 2:length(obj.Fo)
-                gif;
-                t_ = obj.Fo2t(obj.Fo(k_), 1);
-                timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
-                set(l1, 'YData', obj.theta2T(obj.thetaWall(k_, :)));
+                t_ = obj.Fo2t(obj.Fo(k_), 1); 
+                if ShowPlot
+                    gif;
+                    timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
+                    set(l1, 'YData', obj.theta2T(obj.thetaWall(k_, :)));
+                    pause(rr);
+                end               
                 data{k_, 1} = t_;
                 data{k_, 2} = obj.rWL;
-                data{k_, 3} = obj.thetaWall(k_, :);
-                pause(rr);
+                data{k_, 3} = obj.thetaWall(k_, :);                
             end
         end 
-        function data = compareRadialTemps(obj, rr, plot_filename, data1, data2, data1name, data2name)
-            if nargin < 2, rr = 0.5; end
-            if nargin < 3, plot_filename = 'RadialTempLine.gif'; end
+        function [eT, eq] = plotSteadyStateModelError(~, T, Tss, q, qss, t, r, ShowPlot)
+            figure('Units', 'normalized', 'color', 'white', ...
+                        'Position', [0 0 0.5 0.4], 'visible', ShowPlot);
+            eT = 100*abs(trapz(r, T, 2) - trapz(r, Tss, 2))./trapz(r, T, 2);
+            eq = 100*abs(trapz(r, q, 2) - trapz(r, qss, 2))./trapz(r, q, 2);
+            plot(t/3600, eT, 'LineWidth', 1); hold on;
+            plot(t/3600, eq, 'LineWidth', 1);
+            legend('Temperature Error', 'Heat Loss Error', ...
+                'interpreter', 'latex', 'FontSize', 16, ...
+                'Location', 'northeast', 'NumColumns', 4)
+            legend('boxoff')
+            xlabel('$t (h)$', 'interpreter', 'latex', 'FontSize', 16);
+            ylabel('Percent Error', ... 
+                   'interpreter', 'latex', 'FontSize', 16);
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], 'OuterPosition', [0.01 0.09 0.9 0.9], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14);
+            xlim([0, max(t)/3600]);
+        end
+        function data = compareRadialTemps(obj, data1, data2, rr, plot_filename, data1name, data2name)
+            if nargin < 4, rr = 0.5; end
+            if nargin < 5, plot_filename = 'RadialTempLine.gif'; end
+            if nargin < 6, data1name = 'test1'; end
+            if nargin < 7, data2name = 'test2'; end
             data = cell(length(obj.Fo), 3);
             figure('Units', 'normalized', 'color', 'white', ...
                 'Position', [0 0 0.5 0.3]);           
@@ -1878,7 +1927,7 @@ classdef Insulation < handle
             l2 = plot(data2{1, 2}, obj.theta2T(data2{1, 3}), '-r', 'LineWidth', 2);
             xlim([min(obj.rWL), max(obj.rWL)])
             ylim([0, 800])
-            legend('baseline', 'nutec option', 'interpreter', 'latex', 'FontSize', 14, 'Location', 'southwest');
+            legend(data1name, data2name, 'interpreter', 'latex', 'FontSize', 14, 'Location', 'southwest');
             timeTitle = title( ...
                    sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
             xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
