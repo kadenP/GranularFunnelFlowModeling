@@ -21,7 +21,7 @@ FF_test.Tinf = 21;
 FF_test.T0 = 800;
 FF_test.thetaA = 0.5;
 FF_test.H = 0.1;
-FF_test.h = 0.0011;
+FF_test.h = 0.01; %0.0011;
 FF_test.a0 = 0.044;
 FF_test.aOutlet = 0.015;
 FF_test.a = 0.044;
@@ -102,7 +102,7 @@ FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
 FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
 FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
 FF_test.wallInsulation{1, 6} = 100;             % number of lumped elements
-FF_test.wallInsulation{1, 7} = 50;           % W/m2K contact conductance
+FF_test.wallInsulation{1, 7} = 100;           % W/m2K contact conductance
 
 FF_test.wallInsulation{2, 1} = 'skamolex';
 FF_test.nrbarW{2} = 100;
@@ -110,8 +110,8 @@ FF_test.wallInsulation{2, 2} = [2.35, 2.55]; % m
 FF_test.wallInsulation{2, 3} = 0.09;         % W/mK
 FF_test.wallInsulation{2, 4} = 245;          % kg/m3
 FF_test.wallInsulation{2, 5} = 840;          % J/kgK
-FF_test.wallInsulation{2, 6} = 200;             % number of lumped elements
-FF_test.wallInsulation{2, 7} = 100;           % W/m2K contact conductance
+FF_test.wallInsulation{2, 6} = 200;          % number of lumped elements
+FF_test.wallInsulation{2, 7} = 100;          % W/m2K contact conductance
 
 FF_test.wallInsulation{3, 1} = 'elmtherm';
 FF_test.nrbarW{3} = 50;
@@ -268,7 +268,7 @@ FF_test.ztop = 0.1;
 FF_test.reInitObj;
 FF_test.deltaM = 0.005;
 
-FF_test.tauW1 = FF_test.t2Fo(1e-10, 1);
+FF_test.tauW1 = FF_test.t2Fo(3600, 0);
 FF_test.thetaI = 0.9;
 
 % for i = 1:length(FF_test.Fo)

@@ -2274,8 +2274,10 @@
             obj.baseSys = ...
                 ss(full(obj.Abase), obj.Bbase, obj.Cbase, obj.Dbase); 
             % initialize state variables and boundary condition
-            if isempty(obj.thetaBase), obj.thetaBase = 0*ones(N, 1); end
-            computeBaseSys(obj);
+            preheatTime = 3600*1;
+            y0 = computeBaseSys(obj, [1, 1], [0, obj.t2Fo(preheatTime, 1)]);
+            obj.thetaBase = y0(end, N+1:end);
+%             computeBaseSys(obj);
         end
         function initializeWallSys(obj, sensitivity)
             % computes the linear RC system for the storage tank base
@@ -2331,7 +2333,7 @@
                     obj.Cwall(i, i) = (obj.T0 - obj.Tinf)/ ...
                         ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
                         *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
-                    obj.Cwall(i, i+1) = (obj.T0 - obj.Tinf)/ ...
+                    obj.Cwall(i, i+1) = -(obj.T0 - obj.Tinf)/ ...
                         ((obj.Rwall{i, 2} + obj.Rcw{i, 2}) ...
                         *2*pi*obj.meshedWallInsulation{i, 2}(1)*obj.Hp);
                 end
@@ -2339,9 +2341,11 @@
             obj.Dwall = zeros(2*N, 1);
             obj.wallSys = ...
                 ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);
-            % initialize state variables and boundary condition   
-            if isempty(obj.thetaWall), obj.thetaWall = 0*ones(N, 1); end
-            computeWallSys(obj);
+            % initialize state variables and boundary condition (with preheat) 
+            preheatTime = 3600*4;
+            y0 = computeWallSys(obj, [1, 1], [0, obj.t2Fo(preheatTime, 1)]);
+            obj.thetaWall = y0(end, N+1:end);
+%             computeWallSys(obj);
             % construct sensitivity model
             if sensitivity
                 % compute the set of non-dimensional time constant partials
@@ -2444,7 +2448,7 @@
             y = lsim(obj.baseSys, u, Fo_, obj.thetaBase);
             obj.qLossB = y(end, 1); obj.thetaBase = y(end, N+1:end);
             obj.g2 = -obj.qLossB*obj.Hp/(obj.kp*(obj.T0 - obj.Tinf));
-            obj.g2 = obj.g2*(1 - exp(-obj.FoNow./obj.tauW1));
+%             obj.g2 = obj.g2*(1 - exp(-obj.FoNow./obj.tauW1));
         end
         function y = computeWallSys(obj, u, Fo_)
             % computes the heat flux leaving the wall
@@ -2454,7 +2458,7 @@
             y = lsim(obj.wallSys, u, Fo_, obj.thetaWall);
             obj.qLossW = y(end, 1); obj.thetaWall = y(end, N+1:end);
             obj.g4 = obj.qLossW*obj.Hp/(obj.kp*(obj.T0 - obj.Tinf));
-            obj.g4 = obj.g4*(1 - exp(-obj.FoNow./obj.tauW1));
+%             obj.g4 = obj.g4*(1 - exp(-obj.FoNow./obj.tauW1));
         end
         function y = computeWallSensitivityR(obj, u, yss, Fo_)
             % computes the time propogation of the sensitivity w.r.t the
