@@ -101,8 +101,8 @@ FF_test.wallInsulation{1, 2} = [2.25, 2.35]; % m
 FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
 FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
 FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
-FF_test.wallInsulation{1, 6} = 100;             % number of lumped elements
-FF_test.wallInsulation{1, 7} = 100;           % W/m2K contact conductance
+FF_test.wallInsulation{1, 6} = 100;          % number of lumped elements
+FF_test.wallInsulation{1, 7} = 100;          % W/m2K contact conductance
 
 FF_test.wallInsulation{2, 1} = 'skamolex';
 FF_test.nrbarW{2} = 100;
@@ -115,7 +115,7 @@ FF_test.wallInsulation{2, 7} = 100;          % W/m2K contact conductance
 
 FF_test.wallInsulation{3, 1} = 'elmtherm';
 FF_test.nrbarW{3} = 50;
-FF_test.wallInsulation{3, 2} = [2.55, 2.65];  % m
+FF_test.wallInsulation{3, 2} = [2.55, 2.65+0.25];  % m
 FF_test.wallInsulation{3, 3} = 0.025;        % W/mK
 FF_test.wallInsulation{3, 4} = 270;          % kg/m3
 FF_test.wallInsulation{3, 5} = 1005;         % J/kgK
@@ -124,12 +124,21 @@ FF_test.wallInsulation{3, 7} = 100;           % W/m2K contact conductance
 
 FF_test.wallInsulation{4, 1} = 'ss304';
 FF_test.nrbarW{4} = 10;
-FF_test.wallInsulation{4, 2} = [2.65, 2.65635]; % m
+FF_test.wallInsulation{4, 2} = [2.65+0.25, 2.65635+0.25]; % m
 FF_test.wallInsulation{4, 3} = 30;             % W/mK
 FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
 FF_test.wallInsulation{4, 5} = 500;            % J/kgK
 FF_test.wallInsulation{4, 6} = 10;              % number of lumped elements
 FF_test.wallInsulation{4, 7} = 1000;           % W/m2K contact conductance
+
+% FF_test.wallInsulation{1, 1} = 'ss304';
+% FF_test.nrbarW{4} = 10;
+% FF_test.wallInsulation{1, 2} = [2.25, 2.25635]; % m
+% FF_test.wallInsulation{1, 3} = 30;             % W/mK
+% FF_test.wallInsulation{1, 4} = 7700;           % kg/m3
+% FF_test.wallInsulation{1, 5} = 500;            % J/kgK
+% FF_test.wallInsulation{1, 6} = 10;              % number of lumped elements
+% FF_test.wallInsulation{1, 7} = 1000;           % W/m2K contact conductance
 
 % nutec block option
 % FF_test.wallInsulation{1, 1} = 'nutec';

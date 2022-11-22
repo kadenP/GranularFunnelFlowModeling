@@ -1925,9 +1925,10 @@ classdef Insulation < handle
             l1 = plot(data1{1, 2}, obj.theta2T(data1{1, 3}), '-k', 'LineWidth', 2);
             hold on;
             l2 = plot(data2{1, 2}, obj.theta2T(data2{1, 3}), '-r', 'LineWidth', 2);
+            xline(obj.b*obj.Hp, '--k', 'LineWidth', 1);            
             xlim([min(obj.rWL), max(obj.rWL)])
             ylim([0, 800])
-            legend(data1name, data2name, 'interpreter', 'latex', 'FontSize', 14, 'Location', 'southwest');
+            legend(data1name, data2name, 'Particle-Wall Boundary', 'interpreter', 'latex', 'FontSize', 14, 'Location', 'southwest');
             timeTitle = title( ...
                    sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
             xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);

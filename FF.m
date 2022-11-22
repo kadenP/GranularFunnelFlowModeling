@@ -2119,7 +2119,7 @@
             % boundary condition at z=1
             obj.thetaC(1, :) = obj.thetaChat;
         end               
-        function computeThetaO(obj)
+        function theta_ = computeThetaO(obj)
             % computes the centerline and bulk outlet temperature for 
             % current time
 %             if isempty(obj.thetaC)
@@ -2148,7 +2148,9 @@
                 obj.thetaO = [obj.thetaO; [t, theta_(1)]];
                 obj.thetaOB = [obj.thetaOB; [t, ...
                                    2/r_(ri)^2*(theta_.*r_(1:ri))*fr']];
+                               
             end
+            theta_ = obj.thetaOB;
         end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % storage bin quiescent air temperature
@@ -2342,7 +2344,7 @@
             obj.wallSys = ...
                 ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);
             % initialize state variables and boundary condition (with preheat) 
-            preheatTime = 3600*4;
+            preheatTime = 3600*10;
             y0 = computeWallSys(obj, [1, 1], [0, obj.t2Fo(preheatTime, 1)]);
             obj.thetaWall = y0(end, N+1:end);
 %             computeWallSys(obj);
@@ -6432,6 +6434,50 @@
             set(gca, 'TickLabelInterpreter', 'latex')
             set(gcf, 'Color', [1 1 1])
             xlim([0, obj.thetaOB(end, 1)/3600]);
+        end
+        function f = compareOutletTempBulk(obj, f1, f2, f3, dimensions)
+            % plot outlet temperature
+            f = figure('Units', 'normalized', ...
+                'Position', [0 0 0.4 0.3], 'Visible', 'on');
+            obj.thetaFolder = f1;
+            theta1_ = computeThetaO(obj);
+            obj.thetaFolder = f2;
+            theta2_ = computeThetaO(obj);
+            obj.thetaFolder = f3;
+            theta3_ = computeThetaO(obj);
+            if dimensions
+                plot(theta1_(:, 1)/3600, ...
+                    obj.theta2T(theta1_(:, 2)), '-k', 'LineWidth', 1.5);
+                title('Outlet Bulk Temperature: $\frac{2}{a^2}\int_0^aT_c\overline{r}d\overline{r}$', ...
+                       'interpreter', 'latex', 'FontSize', 14);
+                ylabel('$T$ ($^\circ$C)', 'interpreter', 'latex', ...
+                    'FontSize', 14);
+                ylim([obj.theta2T(obj.thetaA), 810]);
+                hold on
+                plot(theta2_(:, 1)/3600, ...
+                    obj.theta2T(theta2_(:, 2)), '-b', 'LineWidth', 1.5);
+                plot(theta3_(:, 1)/3600, ...
+                    obj.theta2T(theta3_(:, 2)), '-r', 'LineWidth', 1.5);
+                fill([theta2_(:, 1)/3600; flipud(theta2_(:, 1)/3600)], ...
+                    [obj.theta2T(theta2_(:, 2)); ...
+                    flipud(obj.theta2T(theta3_(:, 2)))], ...
+                    'g', 'FaceAlpha', 0.5);             
+            else
+                plot(obj.thetaOB(:, 1)/3600, obj.thetaOB(:, 2), '.-k');
+                title('Outlet Bulk Temperature: $\frac{2}{a^2}\int_0^a\theta_c\overline{r}d\overline{r}$', ...
+                   'interpreter', 'latex', 'FontSize', 14);           
+                ylabel('$\theta_o$', 'interpreter', 'latex', ...
+                    'FontSize', 14);
+                ylim([obj.thetaA, max(obj.T2theta(obj.T0(:)))]);
+                hold on
+            end
+            xlabel('$t$ (h)', 'interpreter', 'latex', 'FontSize', 14);
+            set(gca, 'TickLabelInterpreter', 'latex')
+            set(gcf, 'Color', [1 1 1])
+            set(gca, 'box', 'off', 'TickDir', 'both', ...
+                'TickLength', [0.01, 0.025], ...
+                'TickLabelInterpreter', 'latex', 'FontSize', 14);
+            xlim([16, 24]);
         end
         function [f, qw, qb, qt, qTot, energyIn, energyLoss, percentLoss] = plotBinLosses(obj, qwInc, qbInc, qtInc, qTotInc)
             % plots heat loss at discrete points in the composite wall
