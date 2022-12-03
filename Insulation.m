@@ -402,6 +402,24 @@ classdef Insulation < handle
                 Ta(i) = obj.theta2T(obj.thetaA);                                                
             end                        
         end
+        function [Twall, qWall] = simulateCLWUS(obj, tHigh, tLow)
+            % simulates the thermal response in the wall to a periodically
+            % instantaneous charging and discharging particle boundary
+            % cycle
+            u = 0.5*ones(size(obj.Fo));
+            for i = 1:length(obj.Fo)
+                if mod(obj.Fo2t(obj.Fo(i), 1), tHigh + tLow) <= tHigh
+                    u(i) = 1;
+                end                                
+            end
+            initializeWallSys(obj);
+            N = size(obj.meshedWallInsulation, 1);
+            yWall = computeWallSys(obj, u, obj.Fo);
+            obj.qWall = yWall(:, 1:N); qWall = obj.qWall;
+            obj.qLossW = obj.qWall(:, 1);
+            obj.thetaWall = [u, yWall(:, N+1:end)]; 
+            Twall = obj.theta2T(obj.thetaWall);            
+        end
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % storage bin top, base and wall RC model
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

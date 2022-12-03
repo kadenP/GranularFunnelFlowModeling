@@ -115,7 +115,7 @@ FF_test.wallInsulation{2, 7} = 100;          % W/m2K contact conductance
 
 FF_test.wallInsulation{3, 1} = 'elmtherm';
 FF_test.nrbarW{3} = 50;
-FF_test.wallInsulation{3, 2} = [2.55, 2.65+0.25];  % m
+FF_test.wallInsulation{3, 2} = [2.55, 2.65];  % m
 FF_test.wallInsulation{3, 3} = 0.025;        % W/mK
 FF_test.wallInsulation{3, 4} = 270;          % kg/m3
 FF_test.wallInsulation{3, 5} = 1005;         % J/kgK
@@ -124,7 +124,7 @@ FF_test.wallInsulation{3, 7} = 100;           % W/m2K contact conductance
 
 FF_test.wallInsulation{4, 1} = 'ss304';
 FF_test.nrbarW{4} = 10;
-FF_test.wallInsulation{4, 2} = [2.65+0.25, 2.65635+0.25]; % m
+FF_test.wallInsulation{4, 2} = [2.65, 2.65635]; % m
 FF_test.wallInsulation{4, 3} = 30;             % W/mK
 FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
 FF_test.wallInsulation{4, 5} = 500;            % J/kgK
@@ -267,7 +267,7 @@ testR = FF_test.r;
 % FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*1, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*10, 1);
 FF_test.df = FF_test.t2Fo(1200, 1);
-FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*1, 1);
+FF_test.FoEnd = FF_test.t2Fo((3600*6 + 3600*10 + 3600*9)*3, 1);
 % FF_test.df = FF_test.t2Fo(1200, 1);
 % FF_test.FoEnd = FF_test.t2Fo(3600*6, 1);
 
@@ -290,27 +290,27 @@ end
 for i = 19:49
     FF_test.FoMode{1, i} = 'H';
 end
-for i = 49:length(FF_test.Fo)
+for i = 49:73
     FF_test.FoMode{1, i} = 'D';
 end
-% for i = 76:94
-%     FF_test.FoMode{1, i} = 'C';
-% end
-% for i = 94:124
-%     FF_test.FoMode{1, i} = 'H';
-% end
-% for i = 124:151
-%     FF_test.FoMode{1, i} = 'D';
-% end
-% for i = 151:169
-%     FF_test.FoMode{1, i} = 'C';
-% end
-% for i = 169:199
-%     FF_test.FoMode{1, i} = 'H';
-% end
-% for i = 199:226
-%     FF_test.FoMode{1, i} = 'D';
-% end
+for i = 73:91
+    FF_test.FoMode{1, i} = 'C';
+end
+for i = 91:121
+    FF_test.FoMode{1, i} = 'H';
+end
+for i = 121:145
+    FF_test.FoMode{1, i} = 'D';
+end
+for i = 145:163
+    FF_test.FoMode{1, i} = 'C';
+end
+for i = 163:193
+    FF_test.FoMode{1, i} = 'H';
+end
+for i = 193:length(FF_test.Fo)
+    FF_test.FoMode{1, i} = 'D';
+end
 % for i = 226:244
 %     FF_test.FoMode{1, i} = 'C';
 % end

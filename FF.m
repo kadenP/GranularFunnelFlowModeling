@@ -2276,7 +2276,7 @@
             obj.baseSys = ...
                 ss(full(obj.Abase), obj.Bbase, obj.Cbase, obj.Dbase); 
             % initialize state variables and boundary condition
-            preheatTime = 3600*1;
+            preheatTime = 3600*1e-15;
             y0 = computeBaseSys(obj, [1, 1], [0, obj.t2Fo(preheatTime, 1)]);
             obj.thetaBase = y0(end, N+1:end);
 %             computeBaseSys(obj);
@@ -2344,7 +2344,7 @@
             obj.wallSys = ...
                 ss(full(obj.Awall), obj.Bwall, obj.Cwall, obj.Dwall);
             % initialize state variables and boundary condition (with preheat) 
-            preheatTime = 3600*10;
+            preheatTime = 3600*1e-15;
             y0 = computeWallSys(obj, [1, 1], [0, obj.t2Fo(preheatTime, 1)]);
             obj.thetaWall = y0(end, N+1:end);
 %             computeWallSys(obj);
