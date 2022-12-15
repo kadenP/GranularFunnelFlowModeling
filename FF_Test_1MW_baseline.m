@@ -94,70 +94,62 @@ FF_test.kp = 0.4;      % (W/mK) see Baumann and Zunft
 
 % set insulation specifications for bin wall
 % new insulation configuration
-% FF_test.nzbarW = 1000;
-% FF_test.wallInsulation{1, 1} = 'tufcrete 47';
-% FF_test.nrbarW{1} = 100;
-% FF_test.wallInsulation{1, 2} = [2.25, 2.35]; % m
-% FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
-% FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
-% FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
-% FF_test.wallInsulation{1, 6} = 100;          % number of lumped elements
-% FF_test.wallInsulation{1, 7} = 100;          % W/m2K contact conductance
-% 
-% FF_test.wallInsulation{2, 1} = 'skamolex';
-% FF_test.nrbarW{2} = 100;
-% FF_test.wallInsulation{2, 2} = [2.35, 2.55]; % m
-% FF_test.wallInsulation{2, 3} = 0.09;         % W/mK
-% FF_test.wallInsulation{2, 4} = 245;          % kg/m3
-% FF_test.wallInsulation{2, 5} = 840;          % J/kgK
-% FF_test.wallInsulation{2, 6} = 200;          % number of lumped elements
-% FF_test.wallInsulation{2, 7} = 100;          % W/m2K contact conductance
-% 
-% FF_test.wallInsulation{3, 1} = 'elmtherm';
-% FF_test.nrbarW{3} = 50;
-% FF_test.wallInsulation{3, 2} = [2.55, 2.65];  % m
-% FF_test.wallInsulation{3, 3} = 0.025;        % W/mK
-% FF_test.wallInsulation{3, 4} = 270;          % kg/m3
-% FF_test.wallInsulation{3, 5} = 1005;         % J/kgK
-% FF_test.wallInsulation{3, 6} = 100;             % number of lumped elements
-% FF_test.wallInsulation{3, 7} = 100;           % W/m2K contact conductance
-% 
-% FF_test.wallInsulation{4, 1} = 'ss304';
-% FF_test.nrbarW{4} = 10;
-% FF_test.wallInsulation{4, 2} = [2.65, 2.65635]; % m
-% FF_test.wallInsulation{4, 3} = 30;             % W/mK
-% FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
-% FF_test.wallInsulation{4, 5} = 500;            % J/kgK
-% FF_test.wallInsulation{4, 6} = 10;              % number of lumped elements
-% FF_test.wallInsulation{4, 7} = 1000;           % W/m2K contact conductance
+FF_test.nzbarW = 1000;
+FF_test.wallInsulation{1, 1} = 'tufcrete 47';
+FF_test.nrbarW{1} = 100;
+FF_test.wallInsulation{1, 2} = [2.25, 2.35]; % m
+FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
+FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
+FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
+FF_test.wallInsulation{1, 6} = 100;          % number of lumped elements
+FF_test.wallInsulation{1, 7} = 100;          % W/m2K contact conductance
 
-% FF_test.wallInsulation{1, 1} = 'ss304';
-% FF_test.nrbarW{4} = 10;
-% FF_test.wallInsulation{1, 2} = [2.25, 2.25635]; % m
-% FF_test.wallInsulation{1, 3} = 30;             % W/mK
-% FF_test.wallInsulation{1, 4} = 7700;           % kg/m3
-% FF_test.wallInsulation{1, 5} = 500;            % J/kgK
-% FF_test.wallInsulation{1, 6} = 10;              % number of lumped elements
-% FF_test.wallInsulation{1, 7} = 1000;           % W/m2K contact conductance
+FF_test.wallInsulation{2, 1} = 'skamolex';
+FF_test.nrbarW{2} = 100;
+FF_test.wallInsulation{2, 2} = [2.35, 2.55]; % m
+FF_test.wallInsulation{2, 3} = 0.09;         % W/mK
+FF_test.wallInsulation{2, 4} = 245;          % kg/m3
+FF_test.wallInsulation{2, 5} = 840;          % J/kgK
+FF_test.wallInsulation{2, 6} = 200;          % number of lumped elements
+FF_test.wallInsulation{2, 7} = 100;          % W/m2K contact conductance
+
+FF_test.wallInsulation{3, 1} = 'elmtherm';
+FF_test.nrbarW{3} = 50;
+FF_test.wallInsulation{3, 2} = [2.55, 2.65];  % m
+FF_test.wallInsulation{3, 3} = 0.025;        % W/mK
+FF_test.wallInsulation{3, 4} = 270;          % kg/m3
+FF_test.wallInsulation{3, 5} = 1005;         % J/kgK
+FF_test.wallInsulation{3, 6} = 100;             % number of lumped elements
+FF_test.wallInsulation{3, 7} = 100;           % W/m2K contact conductance
+
+FF_test.wallInsulation{4, 1} = 'ss304';
+FF_test.nrbarW{4} = 10;
+FF_test.wallInsulation{4, 2} = [2.65, 2.65635]; % m
+FF_test.wallInsulation{4, 3} = 30;             % W/mK
+FF_test.wallInsulation{4, 4} = 7700;           % kg/m3
+FF_test.wallInsulation{4, 5} = 500;            % J/kgK
+FF_test.wallInsulation{4, 6} = 10;              % number of lumped elements
+FF_test.wallInsulation{4, 7} = 1000;           % W/m2K contact conductance
+
 
 % nutec block option
-FF_test.wallInsulation{1, 1} = 'nutec';
-FF_test.nrbarW{1} = 400;
-FF_test.wallInsulation{1, 2} = [2.25, 2.6564];    % m
-FF_test.wallInsulation{1, 3} = 0.22;              % W/mK
-FF_test.wallInsulation{1, 4} = 160 ;              % kg/m3
-FF_test.wallInsulation{1, 5} = 1130;              % J/kgK
-FF_test.wallInsulation{1, 6} = 300;                   % number of lumped elements
-FF_test.wallInsulation{1, 7} = 25;                    % W/m2K contact conductance
-
-FF_test.wallInsulation{2, 1} = 'ss304';
-FF_test.nrbarW{2} = 50;
-FF_test.wallInsulation{2, 2} = [2.6564, 2.6627];  % m
-FF_test.wallInsulation{2, 3} = 30;                % W/mK
-FF_test.wallInsulation{2, 4} = 7700;              % kg/m3
-FF_test.wallInsulation{2, 5} = 500;               % J/kgK
-FF_test.wallInsulation{2, 6} = 10;                    % number of lumped elements
-FF_test.wallInsulation{2, 7} = 1000;                  % W/m2K contact conductance
+% FF_test.wallInsulation{1, 1} = 'nutec';
+% FF_test.nrbarW{1} = 400;
+% FF_test.wallInsulation{1, 2} = [2.25, 2.6564];    % m
+% FF_test.wallInsulation{1, 3} = 0.22;              % W/mK
+% FF_test.wallInsulation{1, 4} = 160 ;              % kg/m3
+% FF_test.wallInsulation{1, 5} = 1130;              % J/kgK
+% FF_test.wallInsulation{1, 6} = 300;                   % number of lumped elements
+% FF_test.wallInsulation{1, 7} = 25;                    % W/m2K contact conductance
+% 
+% FF_test.wallInsulation{2, 1} = 'ss304';
+% FF_test.nrbarW{2} = 50;
+% FF_test.wallInsulation{2, 2} = [2.6564, 2.6627];  % m
+% FF_test.wallInsulation{2, 3} = 30;                % W/mK
+% FF_test.wallInsulation{2, 4} = 7700;              % kg/m3
+% FF_test.wallInsulation{2, 5} = 500;               % J/kgK
+% FF_test.wallInsulation{2, 6} = 10;                    % number of lumped elements
+% FF_test.wallInsulation{2, 7} = 1000;                  % W/m2K contact conductance
 
 % set insulation specifications for bin base
 % new insulation configuration
@@ -186,17 +178,17 @@ FF_test.roofInsulation{1, 3} = 0.4;             % (W/mK) thermal conductivity
 FF_test.roofInsulation{1, 4} = 64;              % (kg/m3) density
 FF_test.roofInsulation{1, 5} = 1130.4;          % (J/kgK) specific heat capacity
 
-FF_test.roofInsulation{2, 1} = 'elmtherm';
-FF_test.roofInsulation{2, 2} = [0.3048, 0.3048 + 0.0254];
-FF_test.roofInsulation{2, 3} = 0.025;
-FF_test.roofInsulation{2, 4} = 270;
-FF_test.roofInsulation{2, 5} = 1005;
+% FF_test.roofInsulation{2, 1} = 'elmtherm';
+% FF_test.roofInsulation{2, 2} = [0.3048, 0.3048 + 0.0254];
+% FF_test.roofInsulation{2, 3} = 0.025;
+% FF_test.roofInsulation{2, 4} = 270;
+% FF_test.roofInsulation{2, 5} = 1005;
 
-FF_test.roofInsulation{3, 1} = 'steel ceiling';
-FF_test.roofInsulation{3, 2} = [0.3048 + 0.0254, 0.3048 + 0.0254 + 0.00635];
-FF_test.roofInsulation{3, 3} = 30;
-FF_test.roofInsulation{3, 4} = 7700;
-FF_test.roofInsulation{3, 5} = 500;
+FF_test.roofInsulation{2, 1} = 'steel ceiling';
+FF_test.roofInsulation{2, 2} = [0.3048 + 0.0254, 0.3048 + 0.0254 + 0.00635];
+FF_test.roofInsulation{2, 3} = 30;
+FF_test.roofInsulation{2, 4} = 7700;
+FF_test.roofInsulation{2, 5} = 500;
 
 % compute prototype overall heat transfer coefficients to surroundings
 % computeUbase(FF_test); computeUwall(FF_test);

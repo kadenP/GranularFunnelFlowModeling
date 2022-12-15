@@ -6083,7 +6083,7 @@
                     loadTheta(obj, ii+obj.ls-1);
                 end
                 thetaW_(ii, :) = obj.theta{ii_, 7};
-                wallFlux(ii, 1) = obj.theta{ii_, 11};
+%                 wallFlux(ii, 1) = obj.theta{ii_, 11};
             end
             wallTemps = obj.theta2T(thetaW_);
             for n_ = 2:N+1
@@ -6221,7 +6221,7 @@
                 'TickLabelInterpreter', 'latex', 'FontSize', 14)
             xlim([0, max(t)/3600]);
         end
-        function [f, t, waTemps] = plotTopWallTemp(obj, prototype)
+        function [f, t, wallTemps] = plotTopWallTemp(obj, prototype)
             % plots the transient temperature of each wall layer
             % load data
             N = size(obj.wallInsulation, 1); % number of layers
@@ -6245,7 +6245,7 @@
                 end
                 thetaW_(ii, :) = obj.theta{ii_, 10};
             end
-            waTemps = obj.theta2T(thetaW_);
+            wallTemps = obj.theta2T(thetaW_);
             % plot transient temperature
             f = figure('Units', 'normalized', 'color', 'white', ...
                                           'Position', [0 0 0.5 0.4]);
@@ -6267,14 +6267,14 @@
                 'TickLabelInterpreter', 'latex', 'FontSize', 14)
             xlim([0, max(t)/3600]);
         end
-        function [f, t, waFlux] = plotWallRadiation(obj, prototype)
+        function [f, t, wallFlux] = plotWallRadiation(obj, prototype)
             % plots the transient temperature of each wall layer
             % load data
             N = size(obj.wallInsulation, 1); % number of layers
             r_ = NaN*ones(N, 1);
             for i = 1:N, r_(i) = obj.wallInsulation{i, 2}(2); end
             thetaW_ = NaN*ones(length(obj.Fo), N);
-            waFlux = NaN*ones(length(obj.Fo), N+1);
+            wallFlux = NaN*ones(length(obj.Fo), N+1);
             t = NaN*ones(length(obj.Fo), 1);
             for ii = 2:length(obj.Fo)                                      
                 ii_ = mod(ii-1, obj.ls) + 1;
@@ -6291,7 +6291,7 @@
                     loadTheta(obj, ii+obj.ls-1);
                 end
                 thetaW_(ii, :) = obj.theta{ii_, 10};
-                waFlux(ii, 1) = obj.theta{ii_, 18};
+                wallFlux(ii, 1) = obj.theta{ii_, 18};
             end
             % plot transient temperature
             f = figure('Units', 'normalized', 'color', 'white', ...
@@ -6299,7 +6299,7 @@
             colormap(bone);
             labels = cell(N, 1);
             for i = 1:N
-                plot(t/3600, waFlux(:, i), 'LineWidth', 1); hold on;
+                plot(t/3600, wallFlux(:, i), 'LineWidth', 1); hold on;
                 labels{i} = strcat(num2str(r_(i)), ' m');
             end
             legend(labels, ...
