@@ -185,7 +185,7 @@ FF_test.roofInsulation{1, 5} = 1130.4;          % (J/kgK) specific heat capacity
 % FF_test.roofInsulation{2, 5} = 1005;
 
 FF_test.roofInsulation{2, 1} = 'steel ceiling';
-FF_test.roofInsulation{2, 2} = [0.3048 + 0.0254, 0.3048 + 0.0254 + 0.00635];
+FF_test.roofInsulation{2, 2} = [0.3048, 0.3048 + 0.00635];
 FF_test.roofInsulation{2, 3} = 30;
 FF_test.roofInsulation{2, 4} = 7700;
 FF_test.roofInsulation{2, 5} = 500;
