@@ -1844,9 +1844,10 @@ classdef Insulation < handle
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % plotting and vizualization
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        function animateRadialLine(obj, rr, plot_filename)
+        function data = animateRadialLine(obj, rr, plot_filename)
             if nargin < 2, rr = 0.5; end
             if nargin < 3, plot_filename = 'RadialLine.gif'; end
+            data = cell(length(obj.Fo), 3);         
             figure('Units', 'normalized', 'color', 'white', ...
                 'Position', [0 0 0.5 0.3]);
             rw_ = []; thetaw_ = [];
@@ -1864,6 +1865,9 @@ classdef Insulation < handle
             set(gca, 'box', 'off', 'TickDir', 'both', ...
                 'TickLength', [0.01, 0.025], ...l
                 'TickLabelInterpreter', 'latex', 'FontSize', 12)
+            data{1, 1} = 0;
+            data{1, 2} = rw_;
+            data{1, 3} = thetaw_;
             gif(plot_filename, 'frame', gcf);
             for k_ = 2:length(obj.Fo)
                 gif;
@@ -1874,6 +1878,9 @@ classdef Insulation < handle
                 end
                 timeTitle.String = sprintf('$t$ = %1.0f h', t_/3600);
                 set(l1, 'YData', obj.theta2T(thetaw_));
+                data{k_, 1} = t_;
+                data{k_, 2} = rw_;
+                data{k_, 3} = thetaw_;
                 pause(rr);
             end
         end       
@@ -1939,17 +1946,19 @@ classdef Insulation < handle
             if nargin < 7, data2name = 'test2'; end
             data = cell(length(obj.Fo), 3);
             figure('Units', 'normalized', 'color', 'white', ...
-                'Position', [0 0 0.5 0.3]);           
-            l1 = plot(data1{1, 2}, obj.theta2T(data1{1, 3}), '-k', 'LineWidth', 2);
+                'Position', [0 0 0.5 0.3]);
+            Hp_ = 7;
+            Hpf_ = 7*14.29;
+            l1 = plot(data1{1, 2}./Hp_, obj.theta2T(data1{1, 3}), '-k', 'LineWidth', 2);
             hold on;
-            l2 = plot(data2{1, 2}, obj.theta2T(data2{1, 3}), '-r', 'LineWidth', 2);
-            xline(obj.b*obj.Hp, '--k', 'LineWidth', 1);            
-            xlim([min(obj.rWL), max(obj.rWL)])
+            l2 = plot(data2{1, 2}./Hpf_, obj.theta2T(data2{1, 3}), '-r', 'LineWidth', 2);
+            xline(obj.b, '--k', 'LineWidth', 1);            
+            xlim([min(data1{1, 2}./Hp_), max(data1{1, 2}./Hp_)])
             ylim([0, 800])
-            legend(data1name, data2name, 'Particle-Wall Boundary', 'interpreter', 'latex', 'FontSize', 14, 'Location', 'southwest');
+            legend(data1name, data2name, 'Particle-Wall Boundary', 'interpreter', 'latex', 'FontSize', 14, 'Location', 'northeast');
             timeTitle = title( ...
                    sprintf('$t$ = %1.1f h', 0), 'Interpreter', 'latex', 'FontSize', 14);
-            xlabel('$r$ ($m$)', 'interpreter', 'latex', 'FontSize', 14);
+            xlabel('$\overline{r}$', 'interpreter', 'latex', 'FontSize', 14);
             ylabel('$T$ ($^\circ C$)', 'interpreter', 'latex', 'FontSize', 14);
             set(gca, 'box', 'off', 'TickDir', 'both', ...
                 'TickLength', [0.01, 0.025], ...l
@@ -1960,9 +1969,9 @@ classdef Insulation < handle
                 t_ = data1{k_, 1};
                 timeTitle.String = sprintf('$t$ = %1.1f h', t_/3600);
                 set(l1, 'YData', obj.theta2T(data1{k_, 3}));
-                set(l1, 'XData', data1{k_, 2});
+                % set(l1, 'XData', data1{k_, 2});
                 hold on;
-                set(l2, 'XData', data2{k_, 2});
+                % set(l2, 'XData', data2{k_, 2});
                 set(l2, 'YData', obj.theta2T(data2{k_, 3}));
                 hold on;
                 pause(rr);

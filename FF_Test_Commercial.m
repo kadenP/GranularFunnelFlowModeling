@@ -7,7 +7,7 @@ FF_test = FF();
 
 %% Set parameters for full-scale storage bin
 % prototype parameters for 8 hr charge, 10 hr hold, 6 hr discharge
-f = 10;
+f = 8;
 FF_test.Hp = 7*f;   % m
 FF_test.bp = 2.25*f/FF_test.Hp; 
 mtot = 0.95*FF_test.Hp*pi*(FF_test.bp*FF_test.Hp)^2*FF_test.rhopPack;
@@ -21,7 +21,7 @@ FF_test.Tinf = 21;
 FF_test.T0 = 800;
 FF_test.thetaA = 0.8;
 FF_test.H = 0.1;
-FF_test.h = 0.01; %0.0011;
+FF_test.h = 0.005; %0.0011;
 FF_test.a0 = 0.044;
 FF_test.aOutlet = 0.015;
 FF_test.a = 0.044;
@@ -104,7 +104,7 @@ FF_test.wallInsulation{1, 3} = 1.53;         % W/mK
 FF_test.wallInsulation{1, 4} = 2210;         % kg/m3
 FF_test.wallInsulation{1, 5} = 1175;         % J/kgK
 FF_test.wallInsulation{1, 6} = 100;          % number of lumped elements
-FF_test.wallInsulation{1, 7} = 0.1;          % W/m2K contact conductance
+FF_test.wallInsulation{1, 7} = 0.05;          % W/m2K contact conductance
 
 FF_test.wallInsulation{2, 1} = 'skamolex';
 FF_test.nrbarW{2} = 100;
@@ -166,7 +166,7 @@ FF_test.baseInsulation{1, 3} = 0.4;          % W/mK
 FF_test.baseInsulation{1, 4} = 2000;          % kg/m3
 FF_test.baseInsulation{1, 5} = 1025.965;        % J/kgK
 FF_test.baseInsulation{1, 6} = 50;          % number of lumped elements
-FF_test.baseInsulation{1, 7} = 0.1;         % W/m2K contact conductance
+FF_test.baseInsulation{1, 7} = 0.05;         % W/m2K contact conductance
 
 FF_test.baseInsulation{2, 1} = 'fondag';
 zb3 = zb2 + 0.1905*f;

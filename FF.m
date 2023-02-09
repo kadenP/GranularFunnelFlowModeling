@@ -5193,7 +5193,7 @@
                                           z_, r_, true);
                 ylabel(colorbar, '$T$ ($^\circ$C)', 'interpreter', ...
                     'latex', 'FontSize', 14); 
-                caxis([500, 800]);
+                caxis([350, 600]);
             else
                 [~, tfigs1] = plotZRTempNoWall(obj, theta_, z_, r_, true);
                 ylabel(colorbar, '$\theta$', 'interpreter', 'latex', ...
